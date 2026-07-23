@@ -9,7 +9,7 @@ import (
 	"os"
 	"time"
 
-	bkanthropic "byakugan/internal/anthropic"
+	ykanthropic "byakugan/internal/anthropic"
 	"byakugan/internal/corpus"
 	"byakugan/internal/store"
 	"byakugan/internal/voyage"
@@ -20,6 +20,7 @@ import (
 type askRequest struct {
 	Question string      `json:"question"`
 	Lang     corpus.Lang `json:"lang"`
+	Stream   bool        `json:"stream"`
 }
 
 type askResponse struct {
@@ -62,7 +63,7 @@ func hitToCitation(h store.Hit, related bool) citation {
 type byakuganServer struct {
 	voyage    *voyage.Client
 	store     *store.Store
-	anthropic *bkanthropic.Client
+	anthropic *ykanthropic.Client
 }
 
 // refsK caps how many related ROWS refs expansion may add to the prompt. The
@@ -109,7 +110,7 @@ func main() {
 	srv := &byakuganServer{
 		voyage:    voyage.New(voyageKey),
 		store:     st,
-		anthropic: bkanthropic.New(anthropicKey),
+		anthropic: ykanthropic.New(anthropicKey),
 	}
 
 	mux.HandleFunc("POST /ask", srv.handleAsk)
@@ -118,9 +119,10 @@ func main() {
 	log.Fatal(server.ListenAndServe())
 }
 
+// Ye Ke API contract types: "citations" "delta" "error" "done"
 func (s *byakuganServer) handleAsk(w http.ResponseWriter, r *http.Request) {
+
 	var req askRequest
-	w.Header().Set("Content-Type", "application/json")
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		log.Printf("error decoding req: %v", err)
@@ -200,24 +202,70 @@ func (s *byakuganServer) handleAsk(w http.ResponseWriter, r *http.Request) {
 		citations = append(citations, hitToCitation(h, true))
 	}
 
-	answer, interrupted, err := s.anthropic.Frame(r.Context(), req.Question, newHits, related)
+	flusher, ok := w.(http.Flusher)
+
+	if req.Stream && ok {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("X-Accel-Buffering", "no")
+
+		if err := writeSSE(w, flusher, "citations", citations); err != nil {
+			log.Printf("[stream] citations flush encountered an error. Claude API call aborted.")
+			return
+		}
+
+		interrupted, err := s.anthropic.FrameStream(r.Context(), req.Question, newHits, related, func(text string) error {
+			return writeSSE(w, flusher, "delta", map[string]string{"text": text})
+		})
+		if err != nil {
+			log.Printf("[stream] framing failed: %v", err)
+			writeSSE(w, flusher, "error", map[string]string{"message": "Ye Ke is having difficulty streaming at the moment ლ(́◉◞౪◟◉‵ლ"})
+			return
+		}
+
+		if interrupted {
+			log.Println("[stream] framing was interrupted")
+		}
+
+		writeSSE(w, flusher, "done", map[string]bool{"interrupted": interrupted})
+
+	} else {
+		w.Header().Set("Content-Type", "application/json")
+
+		answer, interrupted, err := s.anthropic.Frame(r.Context(), req.Question, newHits, related)
+		if err != nil {
+			log.Printf("Claude API error: %v", err)
+			http.Error(w, "Ye Ke is OK. our LLM ai is not. please try again later. (^._.^)ﾉ", http.StatusServiceUnavailable)
+			return
+		}
+		if interrupted {
+			log.Printf("[claude] answer may be truncated")
+		}
+		res := askResponse{
+			Question:  req.Question,
+			Lang:      string(req.Lang),
+			Answer:    answer,
+			Citations: citations,
+		}
+
+		json.NewEncoder(w).Encode(res)
+	}
+
+}
+
+func writeSSE(w http.ResponseWriter, flusher http.Flusher, event string, payload any) error {
+
+	jsonBytes, err := json.Marshal(payload)
 	if err != nil {
-		log.Printf("Claude API error: %v", err)
-		http.Error(w, "byakugan is OK. our LLM ai is not. please try again later. (^._.^)ﾉ", http.StatusServiceUnavailable)
-		return
-	}
-	if interrupted {
-		log.Printf("[claude] answer may be truncated")
+		return fmt.Errorf("sse marshal: %w", err)
 	}
 
-	res := askResponse{
-		Question:  req.Question,
-		Lang:      string(req.Lang),
-		Answer:    answer,
-		Citations: citations,
+	if _, err := fmt.Fprintf(w, "event: %s\ndata: %s\n\n", event, jsonBytes); err != nil {
+		return err
 	}
+	flusher.Flush()
 
-	json.NewEncoder(w).Encode(res)
+	return nil
 }
 
 // collectRefs walks the hits in rank order and gathers their cross-references,

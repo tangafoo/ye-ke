@@ -1,0 +1,3 @@
+# compiled binaries (go build ./cmd/<name> drops them here)
+api
+corpus
