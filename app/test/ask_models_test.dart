@@ -36,7 +36,7 @@ void main() {
     expect(AskEvent.fromSse(SseEvent('confetti', '{}')), isNull);
   });
 
-  test('Citations get parsed to citations event', () {
+  test('Citations array get parsed to citations event', () {
     final raw = File('test/fixtures/citations.json').readAsStringSync();
     final e = AskEvent.fromSse(SseEvent('citations', raw));
 
