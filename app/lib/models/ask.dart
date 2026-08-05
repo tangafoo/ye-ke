@@ -12,6 +12,11 @@ class Citation {
   final String sourceUrl;
   final bool related;
 
+  String get label {
+    final sub = subsection.isEmpty ? '' : subsection;
+    return '$statuteAbbr s$section$sub';
+  }
+
   const Citation({
     required this.statute,
     required this.statuteAbbr,
@@ -68,19 +73,32 @@ sealed class AskEvent {
 class CitationsEvent extends AskEvent {
   final List<Citation> citations;
   const CitationsEvent(this.citations);
+
+  @override
+  String toString() =>
+      '[CitationsEvent] Found ${citations.length} citations: [${[for (final c in citations) c.label].join(', ')})';
 }
 
 class DeltaEvent extends AskEvent {
   final String text;
   const DeltaEvent(this.text);
+
+  @override
+  String toString() => '[DeltaEvent] $text';
 }
 
 class ErrorEvent extends AskEvent {
   final String message;
   const ErrorEvent(this.message);
+
+  @override
+  String toString() => '[ErrorEvent] $message';
 }
 
 class DoneEvent extends AskEvent {
   final bool interrupted;
   const DoneEvent(this.interrupted);
+
+  @override
+  String toString() => '[DoneEvent] interrupted: $interrupted';
 }
