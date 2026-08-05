@@ -1,0 +1,20 @@
+import 'package:flutter/material.dart';
+
+/// ── Palette ──────────────────────────────────────────────────────────────
+/// Cool, dark, blue. One hot accent (protest red) for tension.
+/// Chrome is loud; the law (later) will be calm. This is the loud surface.
+class Moth {
+  static const bg0 = Color(0xFF060912); // near-black navy
+  static const bg1 = Color(0xFF0A1326); // deep blue
+  static const glow = Color(0xFF2E6BFF); // electric blue (search glow)
+  static const glass = Color(0x14FFFFFF); // 8% white — glass fill
+  static const stroke = Color(0x1FFFFFFF); // 12% white — glass edge
+  static const text = Color(0xFFEAF0FF);
+  static const sub = Color(0x99EAF0FF);
+
+  // Per-category accents — graffiti energy, each its own colour.
+  static const road = Color(0xFF35C4FF); // cyan
+  static const detained = Color(0xFFFF3B6B); // protest red
+  static const door = Color(0xFFB983FF); // violet
+  static const stand = Color(0xFFFFC24B); // amber
+}
