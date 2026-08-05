@@ -2,27 +2,10 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'theme/moth.dart';
+
 void main() {
   runApp(const ByakuganApp());
-}
-
-/// ── Palette ──────────────────────────────────────────────────────────────
-/// Cool, dark, blue. One hot accent (protest red) for tension.
-/// Chrome is loud; the law (later) will be calm. This is the loud surface.
-class Ink {
-  static const bg0 = Color(0xFF060912); // near-black navy
-  static const bg1 = Color(0xFF0A1326); // deep blue
-  static const glow = Color(0xFF2E6BFF); // electric blue (search glow)
-  static const glass = Color(0x14FFFFFF); // 8% white — glass fill
-  static const stroke = Color(0x1FFFFFFF); // 12% white — glass edge
-  static const text = Color(0xFFEAF0FF);
-  static const sub = Color(0x99EAF0FF);
-
-  // Per-category accents — graffiti energy, each its own colour.
-  static const road = Color(0xFF35C4FF); // cyan
-  static const detained = Color(0xFFFF3B6B); // protest red
-  static const door = Color(0xFFB983FF); // violet
-  static const stand = Color(0xFFFFC24B); // amber
 }
 
 class ByakuganApp extends StatelessWidget {
@@ -35,7 +18,7 @@ class ByakuganApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.dark,
-        scaffoldBackgroundColor: Ink.bg0,
+        scaffoldBackgroundColor: Moth.bg0,
         fontFamily: 'Roboto',
         useMaterial3: true,
       ),
@@ -55,10 +38,20 @@ class Category {
 }
 
 const _categories = <Category>[
-  Category('Road stop', 'Disekat di jalan', Icons.directions_car_filled, Ink.road),
-  Category('Detained?', 'Ditahan?', Icons.pan_tool, Ink.detained),
-  Category('At my door', 'Di pintu rumah', Icons.door_front_door, Ink.door),
-  Category('Where I stand', 'Di mana saya berdiri', Icons.local_fire_department, Ink.stand),
+  Category(
+    'Road stop',
+    'Disekat di jalan',
+    Icons.directions_car_filled,
+    Moth.road,
+  ),
+  Category('Detained?', 'Ditahan?', Icons.pan_tool, Moth.detained),
+  Category('At my door', 'Di pintu rumah', Icons.door_front_door, Moth.door),
+  Category(
+    'Where I stand',
+    'Di mana saya berdiri',
+    Icons.local_fire_department,
+    Moth.stand,
+  ),
 ];
 
 class HomeScreen extends StatefulWidget {
@@ -83,12 +76,7 @@ class _HomeScreenState extends State<HomeScreen> {
           // Cool blue base gradient.
           const _Backdrop(),
           // Soft electric glow rising from the search bar.
-          const Positioned(
-            left: 0,
-            right: 0,
-            bottom: -120,
-            child: _Glow(),
-          ),
+          const Positioned(left: 0, right: 0, bottom: -120, child: _Glow()),
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
@@ -132,7 +120,7 @@ class _Backdrop extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Ink.bg1, Ink.bg0],
+          colors: [Moth.bg1, Moth.bg0],
         ),
       ),
     );
@@ -170,7 +158,7 @@ class _TopBar extends StatelessWidget {
         const Text(
           'byakugan',
           style: TextStyle(
-            color: Ink.text,
+            color: Moth.text,
             fontSize: 22,
             fontWeight: FontWeight.w800,
             letterSpacing: -0.5,
@@ -184,11 +172,11 @@ class _TopBar extends StatelessWidget {
           height: 38,
           width: 38,
           decoration: BoxDecoration(
-            color: Ink.glass,
+            color: Moth.glass,
             shape: BoxShape.circle,
-            border: Border.all(color: Ink.stroke),
+            border: Border.all(color: Moth.stroke),
           ),
-          child: const Icon(Icons.person_outline, size: 20, color: Ink.sub),
+          child: const Icon(Icons.person_outline, size: 20, color: Moth.sub),
         ),
       ],
     );
@@ -206,9 +194,9 @@ class _LangToggle extends StatelessWidget {
       height: 38,
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
-        color: Ink.glass,
+        color: Moth.glass,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Ink.stroke),
+        border: Border.all(color: Moth.stroke),
       ),
       child: Row(
         children: [
@@ -230,13 +218,13 @@ class _LangToggle extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: active ? Ink.glow : Colors.transparent,
+          color: active ? Moth.glow : Colors.transparent,
           borderRadius: BorderRadius.circular(16),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: active ? Colors.white : Ink.sub,
+            color: active ? Colors.white : Moth.sub,
             fontWeight: FontWeight.w700,
             fontSize: 13,
           ),
@@ -264,14 +252,16 @@ class _CategoryTile extends StatelessWidget {
               HapticFeedback.lightImpact();
               ScaffoldMessenger.of(context)
                 ..hideCurrentSnackBar()
-                ..showSnackBar(SnackBar(
-                  behavior: SnackBarBehavior.floating,
-                  backgroundColor: Ink.bg1,
-                  content: Text(
-                    'Next: "who is in front of you?" → ${category.en}',
-                    style: const TextStyle(color: Ink.text),
+                ..showSnackBar(
+                  SnackBar(
+                    behavior: SnackBarBehavior.floating,
+                    backgroundColor: Moth.bg1,
+                    content: Text(
+                      'Next: "who is in front of you?" → ${category.en}',
+                      style: const TextStyle(color: Moth.text),
+                    ),
                   ),
-                ));
+                );
             },
             child: Container(
               padding: const EdgeInsets.all(18),
@@ -279,13 +269,10 @@ class _CategoryTile extends StatelessWidget {
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [
-                    category.accent.withValues(alpha: 0.18),
-                    Ink.glass,
-                  ],
+                  colors: [category.accent.withValues(alpha: 0.18), Moth.glass],
                 ),
                 borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: Ink.stroke),
+                border: Border.all(color: Moth.stroke),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -297,13 +284,17 @@ class _CategoryTile extends StatelessWidget {
                       color: category.accent.withValues(alpha: 0.16),
                       borderRadius: BorderRadius.circular(14),
                     ),
-                    child: Icon(category.icon, color: category.accent, size: 24),
+                    child: Icon(
+                      category.icon,
+                      color: category.accent,
+                      size: 24,
+                    ),
                   ),
                   const Spacer(),
                   Text(
                     bm ? category.bm : category.en,
                     style: const TextStyle(
-                      color: Ink.text,
+                      color: Moth.text,
                       fontSize: 19,
                       fontWeight: FontWeight.w800,
                       letterSpacing: -0.3,
@@ -333,7 +324,7 @@ class _SearchBar extends StatelessWidget {
         borderRadius: BorderRadius.circular(26),
         boxShadow: [
           BoxShadow(
-            color: Ink.glow.withValues(alpha: 0.35),
+            color: Moth.glow.withValues(alpha: 0.35),
             blurRadius: 32,
             spreadRadius: -6,
           ),
@@ -352,17 +343,17 @@ class _SearchBar extends StatelessWidget {
             ),
             child: Row(
               children: [
-                const Icon(Icons.search, color: Ink.sub, size: 22),
+                const Icon(Icons.search, color: Moth.sub, size: 22),
                 const SizedBox(width: 12),
                 Expanded(
                   child: TextField(
-                    style: const TextStyle(color: Ink.text, fontSize: 15),
-                    cursorColor: Ink.glow,
+                    style: const TextStyle(color: Moth.text, fontSize: 15),
+                    cursorColor: Moth.glow,
                     decoration: InputDecoration(
                       isCollapsed: true,
                       border: InputBorder.none,
                       hintText: hint,
-                      hintStyle: const TextStyle(color: Ink.sub, fontSize: 15),
+                      hintStyle: const TextStyle(color: Moth.sub, fontSize: 15),
                     ),
                   ),
                 ),
@@ -371,10 +362,14 @@ class _SearchBar extends StatelessWidget {
                   height: 44,
                   width: 44,
                   decoration: const BoxDecoration(
-                    color: Ink.glow,
+                    color: Moth.glow,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.arrow_upward, color: Colors.white, size: 22),
+                  child: const Icon(
+                    Icons.arrow_upward,
+                    color: Colors.white,
+                    size: 22,
+                  ),
                 ),
               ],
             ),
