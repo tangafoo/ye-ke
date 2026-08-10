@@ -71,6 +71,137 @@ class _AskScreenState extends State<AskScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return const Placeholder();
+    return Scaffold(
+      backgroundColor: Moth.bg0,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Moth.bg0, Moth.bg1],
+          ),
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.arrow_back, color: Moth.sub),
+                    ),
+                    const SizedBox(width: 4),
+                    const Text(
+                      'Ye Ke',
+                      style: TextStyle(
+                        color: Moth.sub,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.3,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                Text(
+                  widget.question,
+                  style: const TextStyle(
+                    color: Moth.text,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.4,
+                    height: 1.15,
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                Expanded(
+                  child: _error != null
+                      ? _ErrorBanner(message: _error!)
+                      : SingleChildScrollView(
+                          child: Text(
+                            '${_answer.toString()}${_done ? '' : ' ▍'}',
+                            style: const TextStyle(
+                              color: Moth.text,
+                              fontSize: 16,
+                              height: 1.55,
+                            ),
+                          ),
+                        ),
+                ),
+
+                if (_interrupted)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 8),
+                    child: Text(
+                      'answer may be cut short',
+                      style: TextStyle(color: Moth.stand, fontSize: 12),
+                    ),
+                  ),
+
+                if (_citations.isNotEmpty) ...[
+                  const SizedBox(height: 14),
+                  SizedBox(
+                    height: 36,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _citations.length,
+                      separatorBuilder: (_, _) => const SizedBox(width: 8),
+                      itemBuilder: (context, i) {
+                        final c = _citations[i];
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: Moth.glass,
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(
+                              color: c.related ? Moth.stroke : Moth.glow,
+                            ),
+                          ),
+                          child: Text(
+                            c.label,
+                            style: const TextStyle(
+                              color: Moth.text,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ErrorBanner extends StatelessWidget {
+  final String message;
+  const _ErrorBanner({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Moth.detained.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Moth.detained.withValues(alpha: 0.4)),
+      ),
+      child: Text(
+        message,
+        style: const TextStyle(color: Moth.text, fontSize: 14, height: 1.4),
+      ),
+    );
   }
 }
