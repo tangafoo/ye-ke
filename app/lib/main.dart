@@ -2,6 +2,8 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'screens/ask_screen.dart';
+
 import 'theme/moth.dart';
 
 void main() {
@@ -14,7 +16,7 @@ class ByakuganApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'byakugan',
+      title: 'Ye Ke',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.dark,
@@ -34,6 +36,7 @@ class Category {
   final String bm;
   final IconData icon;
   final Color accent;
+
   const Category(this.en, this.bm, this.icon, this.accent);
 }
 
@@ -68,6 +71,12 @@ class _HomeScreenState extends State<HomeScreen> {
       ? 'apa nak buat bila polis sekat kereta?'
       : 'what to do when cops stop you on the road?';
 
+  void _ask(String question) {
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => AskScreen(question: question)));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -100,7 +109,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                   const SizedBox(height: 14),
-                  _SearchBar(hint: _placeholder),
+                  _SearchBar(hint: _placeholder, onSubmit: _ask),
                 ],
               ),
             ),
@@ -156,7 +165,7 @@ class _TopBar extends StatelessWidget {
       children: [
         // Wordmark — lowercase, tight, a little loud.
         const Text(
-          'byakugan',
+          'Ye Ke',
           style: TextStyle(
             color: Moth.text,
             fontSize: 22,
@@ -313,9 +322,26 @@ class _CategoryTile extends StatelessWidget {
   }
 }
 
-class _SearchBar extends StatelessWidget {
+class _SearchBar extends StatefulWidget {
   final String hint;
-  const _SearchBar({required this.hint});
+  final ValueChanged<String> onSubmit;
+
+  const _SearchBar({required this.hint, required this.onSubmit});
+
+  @override
+  State<_SearchBar> createState() => _SearchBarState();
+}
+
+class _SearchBarState extends State<_SearchBar> {
+  final _controller = TextEditingController();
+
+  void _submit() {
+    final q = _controller.text.trim();
+    if (q.isEmpty) return;
+
+    HapticFeedback.lightImpact();
+    widget.onSubmit(q);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -347,12 +373,15 @@ class _SearchBar extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: TextField(
+                    controller: _controller,
+                    textInputAction: TextInputAction.search,
+                    onSubmitted: (_) => _submit(),
                     style: const TextStyle(color: Moth.text, fontSize: 15),
                     cursorColor: Moth.glow,
                     decoration: InputDecoration(
                       isCollapsed: true,
                       border: InputBorder.none,
-                      hintText: hint,
+                      hintText: widget.hint,
                       hintStyle: const TextStyle(color: Moth.sub, fontSize: 15),
                     ),
                   ),
@@ -377,5 +406,11 @@ class _SearchBar extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 }

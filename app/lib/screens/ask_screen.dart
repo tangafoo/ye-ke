@@ -121,7 +121,10 @@ class _AskScreenState extends State<AskScreen> {
 
                 Expanded(
                   child: _error != null
-                      ? _ErrorBanner(message: _error!)
+                      ? Align(
+                          alignment: Alignment.topCenter,
+                          child: _ErrorBanner(message: _error!),
+                        )
                       : SingleChildScrollView(
                           child: Text(
                             '${_answer.toString()}${_done ? '' : ' ▍'}',

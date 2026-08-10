@@ -72,6 +72,21 @@ type byakuganServer struct {
 // (they're graph edges, not similarity matches) — the cap is the bloat guard.
 const refsK = 3
 
+func withCORS(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
 func main() {
 	ctx := context.Background()
 	mux := http.NewServeMux()
@@ -79,7 +94,7 @@ func main() {
 
 	server := &http.Server{
 		Addr:         ":8080",
-		Handler:      mux,
+		Handler:      withCORS(mux),
 		ReadTimeout:  60 * time.Second,
 		WriteTimeout: 240 * time.Second,
 		IdleTimeout:  420 * time.Second,
