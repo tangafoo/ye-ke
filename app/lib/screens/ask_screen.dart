@@ -6,6 +6,7 @@ import '../api/ask_client.dart';
 import '../models/ask.dart';
 
 import '../theme/moth.dart';
+import '../config.dart';
 
 class AskScreen extends StatefulWidget {
   final String question;
@@ -16,7 +17,7 @@ class AskScreen extends StatefulWidget {
 }
 
 class _AskScreenState extends State<AskScreen> {
-  final client = AskClient(baseUrl: 'http://localhost:8080');
+  final client = AskClient(baseUrl: apiBaseUrl);
 
   final _answer = StringBuffer();
   var _citations = <Citation>[];
