@@ -3,11 +3,37 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'screens/ask_screen.dart';
+import 'widgets/bottom_bar.dart';
 
 import 'theme/moth.dart';
 
 void main() {
   runApp(const ByakuganApp());
+}
+
+class AppShell extends StatefulWidget {
+  const AppShell({super.key});
+
+  @override
+  State<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends State<AppShell> {
+  var _index = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: IndexedStack(
+        index: _index,
+        children: const [HomeScreen(), HomeScreen(), HomeScreen()],
+      ),
+      bottomNavigationBar: BottomBar(
+        index: _index,
+        onSelect: (i) => setState(() => _index = i),
+      ),
+    );
+  }
 }
 
 class ByakuganApp extends StatelessWidget {
@@ -24,7 +50,7 @@ class ByakuganApp extends StatelessWidget {
         fontFamily: 'Roboto',
         useMaterial3: true,
       ),
-      home: const HomeScreen(),
+      home: const AppShell(),
     );
   }
 }
@@ -129,7 +155,7 @@ class _Backdrop extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Moth.bg1, Moth.bg0],
+          colors: [Moth.bg1, Moth.bg1],
         ),
       ),
     );
