@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../theme/moth.dart';
+import '../theme/ye_ke.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -11,6 +11,6 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
-    return Placeholder(color: Moth.door);
+    return Container(color: YeKe.cement);
   }
 }

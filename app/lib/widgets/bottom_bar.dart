@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../theme/moth.dart';
+import '../theme/ye_ke.dart';
 
 class MenuItem {
   final String label;
@@ -27,15 +27,15 @@ class BottomBar extends StatelessWidget {
     return Container(
       height: _barHeight,
       decoration: const BoxDecoration(
-        color: Moth.bg1,
-        border: Border(top: BorderSide(color: Moth.detained, width: 4)),
+        color: YeKe.bg1,
+        border: Border(top: BorderSide(color: YeKe.detained, width: 4)),
       ),
       child: Row(
         children: [
           for (var i = 0; i < _menuItems.length + 1; i++)
             Expanded(
               child: i == 0
-                  ? Container(color: Moth.glass)
+                  ? Container(color: YeKe.glass)
                   : _MenuSlot(
                       item: _menuItems[i - 1],
                       selected: index == i - 1,
@@ -62,7 +62,7 @@ class _MenuSlot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: selected ? Moth.glow : Colors.transparent,
+      color: selected ? YeKe.leather : Colors.transparent,
       child: InkWell(
         onTap: onTap,
         child: Column(
@@ -79,7 +79,7 @@ class _MenuSlot extends StatelessWidget {
             Text(
               item.label,
               style: TextStyle(
-                color: selected ? Moth.text : Moth.sub,
+                color: selected ? YeKe.text : YeKe.sub,
                 fontSize: 11,
               ),
             ),
@@ -97,7 +97,7 @@ class CameraButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Moth.detained,
+      color: YeKe.detained,
       shape: const CircleBorder(),
       elevation: 6,
       shadowColor: Color(0x73000000),

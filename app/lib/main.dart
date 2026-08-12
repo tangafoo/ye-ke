@@ -8,7 +8,7 @@ import 'package:flutter/services.dart';
 import 'screens/ask_screen.dart';
 import 'widgets/bottom_bar.dart';
 
-import 'theme/moth.dart';
+import 'theme/ye_ke.dart';
 
 void main() {
   runApp(const ByakuganApp());
@@ -31,13 +31,13 @@ class _AppShellState extends State<AppShell> {
         ? await showDialog<String>(
             context: context,
             builder: (_) => const Dialog(
-              backgroundColor: Moth.bg0,
+              backgroundColor: YeKe.bg0,
               child: _CameraActions(),
             ),
           )
         : await showModalBottomSheet<String>(
             context: context,
-            backgroundColor: Moth.bg0,
+            backgroundColor: YeKe.bg0,
             builder: (_) => const _CameraActions(),
           );
 
@@ -79,9 +79,9 @@ class _CameraActions extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text("hi", style: TextStyle(color: Moth.door)),
+            Text("hi", style: TextStyle(color: YeKe.door)),
             const SizedBox(height: 10),
-            Text("yo", style: TextStyle(color: Moth.door)),
+            Text("yo", style: TextStyle(color: YeKe.door)),
           ],
         ),
       ),
@@ -99,7 +99,7 @@ class ByakuganApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.dark,
-        scaffoldBackgroundColor: Moth.bg0,
+        scaffoldBackgroundColor: YeKe.bg0,
         fontFamily: 'Roboto',
         useMaterial3: true,
       ),
@@ -124,15 +124,15 @@ const _categories = <Category>[
     'Road stop',
     'Disekat di jalan',
     Icons.directions_car_filled,
-    Moth.road,
+    YeKe.road,
   ),
-  Category('Detained?', 'Ditahan?', Icons.pan_tool, Moth.detained),
-  Category('At my door', 'Di pintu rumah', Icons.door_front_door, Moth.door),
+  Category('Detained?', 'Ditahan?', Icons.pan_tool, YeKe.detained),
+  Category('At my door', 'Di pintu rumah', Icons.door_front_door, YeKe.door),
   Category(
     'Where I stand',
     'Di mana saya berdiri',
     Icons.local_fire_department,
-    Moth.stand,
+    YeKe.stand,
   ),
 ];
 
@@ -207,7 +207,7 @@ class _Backdrop extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Moth.bg1, Moth.bg1],
+          colors: [YeKe.bg1, YeKe.bg1],
         ),
       ),
     );
@@ -250,11 +250,11 @@ class _TopBar extends StatelessWidget {
           height: 38,
           width: 38,
           decoration: BoxDecoration(
-            color: Moth.glass,
+            color: YeKe.glass,
             shape: BoxShape.circle,
-            border: Border.all(color: Moth.stroke),
+            border: Border.all(color: YeKe.stroke),
           ),
-          child: const Icon(Icons.person_outline, size: 20, color: Moth.sub),
+          child: const Icon(Icons.person_outline, size: 20, color: YeKe.sub),
         ),
       ],
     );
@@ -272,9 +272,9 @@ class _LangToggle extends StatelessWidget {
       height: 38,
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
-        color: Moth.glass,
+        color: YeKe.glass,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Moth.stroke),
+        border: Border.all(color: YeKe.stroke),
       ),
       child: Row(
         children: [
@@ -296,13 +296,13 @@ class _LangToggle extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: active ? Moth.glow : Colors.transparent,
+          color: active ? YeKe.glow : Colors.transparent,
           borderRadius: BorderRadius.circular(16),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: active ? Colors.white : Moth.sub,
+            color: active ? Colors.white : YeKe.sub,
             fontWeight: FontWeight.w700,
             fontSize: 13,
           ),
@@ -333,10 +333,10 @@ class _CategoryTile extends StatelessWidget {
                 ..showSnackBar(
                   SnackBar(
                     behavior: SnackBarBehavior.floating,
-                    backgroundColor: Moth.bg1,
+                    backgroundColor: YeKe.bg1,
                     content: Text(
                       'Next: "who is in front of you?" → ${category.en}',
-                      style: const TextStyle(color: Moth.text),
+                      style: const TextStyle(color: YeKe.text),
                     ),
                   ),
                 );
@@ -347,10 +347,10 @@ class _CategoryTile extends StatelessWidget {
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [category.accent.withValues(alpha: 0.18), Moth.glass],
+                  colors: [category.accent.withValues(alpha: 0.18), YeKe.glass],
                 ),
                 borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: Moth.stroke),
+                border: Border.all(color: YeKe.stroke),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -372,7 +372,7 @@ class _CategoryTile extends StatelessWidget {
                   Text(
                     bm ? category.bm : category.en,
                     style: const TextStyle(
-                      color: Moth.text,
+                      color: YeKe.text,
                       fontSize: 19,
                       fontWeight: FontWeight.w800,
                       letterSpacing: -0.3,
@@ -419,7 +419,7 @@ class _SearchBarState extends State<_SearchBar> {
         borderRadius: BorderRadius.circular(26),
         boxShadow: [
           BoxShadow(
-            color: Moth.glow.withValues(alpha: 0.35),
+            color: YeKe.glow.withValues(alpha: 0.35),
             blurRadius: 32,
             spreadRadius: -6,
           ),
@@ -438,20 +438,20 @@ class _SearchBarState extends State<_SearchBar> {
             ),
             child: Row(
               children: [
-                const Icon(Icons.search, color: Moth.sub, size: 22),
+                const Icon(Icons.search, color: YeKe.sub, size: 22),
                 const SizedBox(width: 12),
                 Expanded(
                   child: TextField(
                     controller: _controller,
                     textInputAction: TextInputAction.search,
                     onSubmitted: (_) => _submit(),
-                    style: const TextStyle(color: Moth.text, fontSize: 15),
-                    cursorColor: Moth.glow,
+                    style: const TextStyle(color: YeKe.text, fontSize: 15),
+                    cursorColor: YeKe.glow,
                     decoration: InputDecoration(
                       isCollapsed: true,
                       border: InputBorder.none,
                       hintText: widget.hint,
-                      hintStyle: const TextStyle(color: Moth.sub, fontSize: 15),
+                      hintStyle: const TextStyle(color: YeKe.sub, fontSize: 15),
                     ),
                   ),
                 ),
@@ -460,7 +460,7 @@ class _SearchBarState extends State<_SearchBar> {
                   height: 44,
                   width: 44,
                   decoration: const BoxDecoration(
-                    color: Moth.glow,
+                    color: YeKe.glow,
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(

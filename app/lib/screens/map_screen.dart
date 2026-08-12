@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../theme/moth.dart';
+import '../theme/ye_ke.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -11,6 +11,6 @@ class MapScreen extends StatefulWidget {
 class _MapScreenState extends State<MapScreen> {
   @override
   Widget build(BuildContext context) {
-    return Placeholder(color: Moth.glow);
+    return Container(color: YeKe.paper);
   }
 }

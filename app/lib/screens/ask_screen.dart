@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import '../api/ask_client.dart';
 import '../models/ask.dart';
 
-import '../theme/moth.dart';
+import '../theme/ye_ke.dart';
 import '../config.dart';
 
 class AskScreen extends StatefulWidget {
@@ -73,13 +73,13 @@ class _AskScreenState extends State<AskScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Moth.bg0,
+      backgroundColor: YeKe.bg0,
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Moth.bg0, Moth.bg1],
+            colors: [YeKe.bg0, YeKe.bg1],
           ),
         ),
         child: SafeArea(
@@ -92,7 +92,7 @@ class _AskScreenState extends State<AskScreen> {
                   children: [
                     IconButton(
                       onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.arrow_back, color: Moth.sub),
+                      icon: const Icon(Icons.arrow_back, color: YeKe.sub),
                     ),
                     const SizedBox(width: 4),
                     Image.asset('assets/images/logo.webp', height: 40),
@@ -103,7 +103,7 @@ class _AskScreenState extends State<AskScreen> {
                 Text(
                   widget.question,
                   style: const TextStyle(
-                    color: Moth.text,
+                    color: YeKe.text,
                     fontSize: 22,
                     fontWeight: FontWeight.w800,
                     letterSpacing: -0.4,
@@ -122,7 +122,7 @@ class _AskScreenState extends State<AskScreen> {
                           child: Text(
                             '${_answer.toString()}${_done ? '' : ' ▍'}',
                             style: const TextStyle(
-                              color: Moth.text,
+                              color: YeKe.text,
                               fontSize: 16,
                               height: 1.55,
                             ),
@@ -135,7 +135,7 @@ class _AskScreenState extends State<AskScreen> {
                     padding: EdgeInsets.only(top: 8),
                     child: Text(
                       'answer may be cut short',
-                      style: TextStyle(color: Moth.stand, fontSize: 12),
+                      style: TextStyle(color: YeKe.stand, fontSize: 12),
                     ),
                   ),
 
@@ -153,16 +153,16 @@ class _AskScreenState extends State<AskScreen> {
                           padding: const EdgeInsets.symmetric(horizontal: 12),
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
-                            color: Moth.glass,
+                            color: YeKe.glass,
                             borderRadius: BorderRadius.circular(18),
                             border: Border.all(
-                              color: c.related ? Moth.stroke : Moth.glow,
+                              color: c.related ? YeKe.stroke : YeKe.glow,
                             ),
                           ),
                           child: Text(
                             c.label,
                             style: const TextStyle(
-                              color: Moth.text,
+                              color: YeKe.text,
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
                             ),
@@ -190,13 +190,13 @@ class _ErrorBanner extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Moth.detained.withValues(alpha: 0.12),
+        color: YeKe.detained.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Moth.detained.withValues(alpha: 0.4)),
+        border: Border.all(color: YeKe.detained.withValues(alpha: 0.4)),
       ),
       child: Text(
         message,
-        style: const TextStyle(color: Moth.text, fontSize: 14, height: 1.4),
+        style: const TextStyle(color: YeKe.text, fontSize: 14, height: 1.4),
       ),
     );
   }
