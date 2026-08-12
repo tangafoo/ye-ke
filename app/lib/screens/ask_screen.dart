@@ -95,15 +95,7 @@ class _AskScreenState extends State<AskScreen> {
                       icon: const Icon(Icons.arrow_back, color: Moth.sub),
                     ),
                     const SizedBox(width: 4),
-                    const Text(
-                      'Ye Ke',
-                      style: TextStyle(
-                        color: Moth.sub,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.3,
-                      ),
-                    ),
+                    Image.asset('assets/images/logo.webp', height: 40),
                   ],
                 ),
                 const SizedBox(height: 12),

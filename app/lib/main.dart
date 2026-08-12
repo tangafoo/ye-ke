@@ -163,16 +163,7 @@ class _TopBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        // Wordmark — lowercase, tight, a little loud.
-        const Text(
-          'Ye Ke',
-          style: TextStyle(
-            color: Moth.text,
-            fontSize: 22,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.5,
-          ),
-        ),
+        Image.asset('assets/images/logo-white.webp', height: 40),
         const Spacer(),
         _LangToggle(bm: bm, onToggle: onToggle),
         const SizedBox(width: 12),
