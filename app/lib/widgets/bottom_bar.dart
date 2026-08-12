@@ -8,9 +8,9 @@ class MenuItem {
 }
 
 const _menuItems = <MenuItem>[
-  MenuItem('Scenarios', ''),
-  MenuItem('Quote', ''),
-  MenuItem('Profile', ''),
+  MenuItem('Map', 'assets/images/map-icon.webp'),
+  MenuItem('Chat', 'assets/images/chat-icon.webp'),
+  MenuItem('User', 'assets/images/user-icon.webp'),
 ];
 
 const _barHeight = 64.0;
@@ -62,12 +62,19 @@ class _MenuSlot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.transparent,
+      color: selected ? Moth.glow : Colors.transparent,
       child: InkWell(
         onTap: onTap,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            if (item.icon.isNotEmpty)
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(6),
+                  child: Image.asset(item.icon),
+                ),
+              ),
             const SizedBox(height: 2),
             Text(
               item.label,

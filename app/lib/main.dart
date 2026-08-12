@@ -1,4 +1,7 @@
 import 'dart:ui';
+import 'screens/chat_screen.dart';
+import 'screens/map_screen.dart';
+import 'screens/profile_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -21,19 +24,66 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   var _index = 0;
 
+  Future<void> _onCamera() async {
+    final isDesktop = MediaQuery.sizeOf(context).width > 600;
+
+    final choice = isDesktop
+        ? await showDialog<String>(
+            context: context,
+            builder: (_) => const Dialog(
+              backgroundColor: Moth.bg0,
+              child: _CameraActions(),
+            ),
+          )
+        : await showModalBottomSheet<String>(
+            context: context,
+            backgroundColor: Moth.bg0,
+            builder: (_) => const _CameraActions(),
+          );
+
+    if (!mounted) return;
+    switch (choice) {
+      case 'live':
+      case 'report':
+      case null:
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       extendBody: true,
       body: IndexedStack(
         index: _index,
-        children: const [HomeScreen(), HomeScreen(), HomeScreen()],
+        children: const [MapScreen(), ChatScreen(), ProfileScreen()],
       ),
-      floatingActionButton: CameraButton(onTap: () {}),
+      floatingActionButton: CameraButton(onTap: () => _onCamera()),
       floatingActionButtonLocation: const CameraBtnLocation(),
       bottomNavigationBar: BottomBar(
         index: _index,
         onSelect: (i) => setState(() => _index = i),
+      ),
+    );
+  }
+}
+
+class _CameraActions extends StatelessWidget {
+  const _CameraActions();
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text("hi", style: TextStyle(color: Moth.door)),
+            const SizedBox(height: 10),
+            Text("yo", style: TextStyle(color: Moth.door)),
+          ],
+        ),
       ),
     );
   }
