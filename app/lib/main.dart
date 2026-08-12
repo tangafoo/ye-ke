@@ -53,9 +53,26 @@ class _AppShellState extends State<AppShell> {
   Widget build(BuildContext context) {
     return Scaffold(
       extendBody: true,
-      body: IndexedStack(
-        index: _index,
-        children: const [MapScreen(), ChatScreen(), ProfileScreen()],
+      body: Stack(
+        children: [
+          IndexedStack(
+            index: _index,
+            children: const [MapScreen(), ChatScreen(), ProfileScreen()],
+          ),
+          Positioned(
+            top: 0,
+            right: 0,
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 12, right: 12),
+                child: Image.asset(
+                  'assets/images/activity-icon.webp',
+                  height: 50,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
       floatingActionButton: CameraButton(onTap: () => _onCamera()),
       floatingActionButtonLocation: const CameraBtnLocation(),
@@ -79,9 +96,8 @@ class _CameraActions extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text("hi", style: TextStyle(color: YeKe.door)),
-            const SizedBox(height: 10),
-            Text("yo", style: TextStyle(color: YeKe.door)),
+            Text("Start a Livestream", style: TextStyle(color: YeKe.door)),
+            Text("Make a Post", style: TextStyle(color: YeKe.door)),
           ],
         ),
       ),
