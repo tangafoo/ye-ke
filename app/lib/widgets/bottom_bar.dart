@@ -13,67 +13,35 @@ const _menuItems = <MenuItem>[
   MenuItem('Profile', ''),
 ];
 
+const _barHeight = 64.0;
+const _livestreamBtnHeight = 80.0;
+
 class BottomBar extends StatelessWidget {
   final int index;
   final ValueChanged<int> onSelect;
 
   const BottomBar({super.key, required this.index, required this.onSelect});
 
-  static const _barHeight = 64.0;
-  static const _livestreamBtnHeight = 80.0;
-
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: _livestreamBtnHeight + 8,
-      child: Stack(
+    return Container(
+      height: _barHeight,
+      decoration: const BoxDecoration(
+        color: Moth.bg1,
+        border: Border(top: BorderSide(color: Moth.detained, width: 4)),
+      ),
+      child: Row(
         children: [
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            height: _barHeight,
-            child: Container(
-              decoration: const BoxDecoration(
-                color: Moth.bg1,
-                border: Border(top: BorderSide(color: Moth.detained, width: 4)),
-              ),
-              child: Row(
-                children: [
-                  for (var i = 0; i < _menuItems.length + 1; i++)
-                    Expanded(
-                      child: i == 0
-                          ? Container(color: Moth.glass)
-                          : _MenuSlot(
-                              item: _menuItems[i - 1],
-                              selected: index == i - 1,
-                              onTap: () => onSelect(i - 1),
-                            ),
+          for (var i = 0; i < _menuItems.length + 1; i++)
+            Expanded(
+              child: i == 0
+                  ? Container(color: Moth.glass)
+                  : _MenuSlot(
+                      item: _menuItems[i - 1],
+                      selected: index == i - 1,
+                      onTap: () => onSelect(i - 1),
                     ),
-                ],
-              ),
             ),
-          ),
-          Positioned(
-            left: 16,
-            bottom: 16,
-            child: GestureDetector(
-              onTap: () {},
-              child: Container(
-                height: _livestreamBtnHeight,
-                width: _livestreamBtnHeight,
-                padding: const EdgeInsets.all(6),
-                decoration: const BoxDecoration(
-                  color: Moth.detained,
-                  shape: BoxShape.circle,
-                ),
-                child: Image.asset(
-                  'assets/images/camera-icon.webp',
-                  height: 20,
-                ),
-              ),
-            ),
-          ),
         ],
       ),
     );
@@ -112,5 +80,43 @@ class _MenuSlot extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class CameraButton extends StatelessWidget {
+  final VoidCallback onTap;
+  const CameraButton({super.key, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Moth.detained,
+      shape: const CircleBorder(),
+      elevation: 6,
+      shadowColor: Color(0x73000000),
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: Container(
+          height: _livestreamBtnHeight,
+          width: _livestreamBtnHeight,
+          padding: const EdgeInsets.all(6),
+          alignment: Alignment.center,
+          child: Image.asset('assets/images/camera-icon.webp'),
+        ),
+      ),
+    );
+  }
+}
+
+class CameraBtnLocation extends FloatingActionButtonLocation {
+  const CameraBtnLocation();
+
+  @override
+  Offset getOffset(ScaffoldPrelayoutGeometry scaffoldGeometry) {
+    final base = FloatingActionButtonLocation.startDocked.getOffset(
+      scaffoldGeometry,
+    );
+    return base + const Offset(0, 12);
   }
 }

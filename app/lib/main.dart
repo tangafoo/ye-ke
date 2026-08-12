@@ -24,10 +24,13 @@ class _AppShellState extends State<AppShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBody: true,
       body: IndexedStack(
         index: _index,
         children: const [HomeScreen(), HomeScreen(), HomeScreen()],
       ),
+      floatingActionButton: CameraButton(onTap: () {}),
+      floatingActionButtonLocation: const CameraBtnLocation(),
       bottomNavigationBar: BottomBar(
         index: _index,
         onSelect: (i) => setState(() => _index = i),
@@ -127,7 +130,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       mainAxisSpacing: 14,
                       crossAxisSpacing: 14,
                       childAspectRatio: 0.92,
-                      physics: const NeverScrollableScrollPhysics(),
                       children: [
                         for (final c in _categories)
                           _CategoryTile(category: c, bm: _bm),
