@@ -1,3 +1,5 @@
-# compiled binaries (go build ./cmd/<name> drops them here)
-api
-corpus
+# compiled binaries (go build ./cmd/<name> drops them at server/ root).
+# Leading slash anchors to this directory — a bare "api" would also ignore
+# the cmd/api/ SOURCE directory (new files there vanish from git silently).
+/api
+/corpus

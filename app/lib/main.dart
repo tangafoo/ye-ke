@@ -1,28 +1,183 @@
 import 'dart:ui';
+import 'package:byakugan/screens/live_screen.dart';
+
+import 'screens/chat_screen.dart';
+import 'screens/location_primer_screen.dart';
+import 'screens/map_screen.dart';
+import 'screens/profile_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'services/identity_service.dart';
+import 'widgets/bottom_bar.dart';
+
+import 'theme/ye_ke.dart';
 
 void main() {
   runApp(const ByakuganApp());
 }
 
-/// ── Palette ──────────────────────────────────────────────────────────────
-/// Cool, dark, blue. One hot accent (protest red) for tension.
-/// Chrome is loud; the law (later) will be calm. This is the loud surface.
-class Ink {
-  static const bg0 = Color(0xFF060912); // near-black navy
-  static const bg1 = Color(0xFF0A1326); // deep blue
-  static const glow = Color(0xFF2E6BFF); // electric blue (search glow)
-  static const glass = Color(0x14FFFFFF); // 8% white — glass fill
-  static const stroke = Color(0x1FFFFFFF); // 12% white — glass edge
-  static const text = Color(0xFFEAF0FF);
-  static const sub = Color(0x99EAF0FF);
+const _kPrimerDone = 'location_primer_done';
 
-  // Per-category accents — graffiti energy, each its own colour.
-  static const road = Color(0xFF35C4FF); // cyan
-  static const detained = Color(0xFFFF3B6B); // protest red
-  static const door = Color(0xFFB983FF); // violet
-  static const stand = Color(0xFFFFC24B); // amber
+/// Startup gate: kicks off anonymous registration (fire-and-forget, never
+/// blocks launch) and decides whether the location primer runs before the
+/// shell. The primer shows once — after that, straight to the app.
+class StartupGate extends StatefulWidget {
+  const StartupGate({super.key});
+
+  @override
+  State<StartupGate> createState() => _StartupGateState();
+}
+
+class _StartupGateState extends State<StartupGate> {
+  bool? _showPrimer; // null while deciding
+
+  @override
+  void initState() {
+    super.initState();
+    _decide();
+  }
+
+  Future<void> _decide() async {
+    IdentityService().ensureRegistered();
+
+    final prefs = await SharedPreferences.getInstance();
+    var show = false;
+    if (!(prefs.getBool(_kPrimerDone) ?? false)) {
+      try {
+        // `denied` is also the never-asked state — the one the primer is for.
+        show = await Geolocator.checkPermission() == LocationPermission.denied;
+      } catch (_) {
+        show = false; // platform without location support
+      }
+    }
+    if (!mounted) return;
+    setState(() => _showPrimer = show);
+  }
+
+  Future<void> _primerFinished() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kPrimerDone, true);
+    if (!mounted) return;
+    setState(() => _showPrimer = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return switch (_showPrimer) {
+      null => const ColoredBox(color: YeKe.night),
+      true => LocationPrimerScreen(onFinished: _primerFinished),
+      false => const AppShell(),
+    };
+  }
+}
+
+class AppShell extends StatefulWidget {
+  const AppShell({super.key});
+
+  @override
+  State<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends State<AppShell> {
+  var _index = 0;
+
+  Future<void> _onCamera() async {
+    final isDesktop = MediaQuery.sizeOf(context).width > 600;
+
+    final choice = isDesktop
+        ? await showDialog<String>(
+            context: context,
+            builder: (_) => const Dialog(
+              backgroundColor: YeKe.bg0,
+              child: _CameraActions(),
+            ),
+          )
+        : await showModalBottomSheet<String>(
+            context: context,
+            backgroundColor: YeKe.bg0,
+            builder: (_) => const _CameraActions(),
+          );
+
+    if (!mounted) return;
+    switch (choice) {
+      case 'live':
+        Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const LiveScreen()));
+      case 'report':
+      case null:
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      extendBody: true,
+      body: Stack(
+        children: [
+          IndexedStack(
+            index: _index,
+            children: const [ChatScreen(), MapScreen(), ProfileScreen()],
+          ),
+          Positioned(
+            top: 0,
+            right: 0,
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 12, right: 12),
+                child: Image.asset(
+                  'assets/images/activity-icon.webp',
+                  height: 42,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+      floatingActionButton: CameraButton(onTap: () => _onCamera()),
+      floatingActionButtonLocation: const CameraBtnLocation(),
+      bottomNavigationBar: BottomBar(
+        index: _index,
+        onSelect: (i) => setState(() => _index = i),
+      ),
+    );
+  }
+}
+
+class _CameraActions extends StatelessWidget {
+  const _CameraActions();
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ListTile(
+              tileColor: YeKe.door,
+              title: Text(
+                'Start a Livestream',
+                style: TextStyle(color: Colors.white),
+              ),
+              onTap: () => Navigator.pop(context, 'live'),
+            ),
+            const SizedBox(height: 10),
+            ListTile(
+              tileColor: YeKe.paint,
+              title: Text('Make a Post', style: TextStyle(color: Colors.white)),
+              onTap: () {},
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class ByakuganApp extends StatelessWidget {
@@ -31,15 +186,15 @@ class ByakuganApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'byakugan',
+      title: 'Ye Ke',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.dark,
-        scaffoldBackgroundColor: Ink.bg0,
-        fontFamily: 'Roboto',
+        scaffoldBackgroundColor: YeKe.bg0,
+        fontFamily: 'Chelsea',
         useMaterial3: true,
       ),
-      home: const HomeScreen(),
+      home: const StartupGate(),
     );
   }
 }
@@ -51,14 +206,25 @@ class Category {
   final String bm;
   final IconData icon;
   final Color accent;
+
   const Category(this.en, this.bm, this.icon, this.accent);
 }
 
 const _categories = <Category>[
-  Category('Road stop', 'Disekat di jalan', Icons.directions_car_filled, Ink.road),
-  Category('Detained?', 'Ditahan?', Icons.pan_tool, Ink.detained),
-  Category('At my door', 'Di pintu rumah', Icons.door_front_door, Ink.door),
-  Category('Where I stand', 'Di mana saya berdiri', Icons.local_fire_department, Ink.stand),
+  Category(
+    'Road stop',
+    'Disekat di jalan',
+    Icons.directions_car_filled,
+    YeKe.road,
+  ),
+  Category('Detained?', 'Ditahan?', Icons.pan_tool, YeKe.detained),
+  Category('At my door', 'Di pintu rumah', Icons.door_front_door, YeKe.door),
+  Category(
+    'Where I stand',
+    'Di mana saya berdiri',
+    Icons.local_fire_department,
+    YeKe.stand,
+  ),
 ];
 
 class HomeScreen extends StatefulWidget {
@@ -71,10 +237,6 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   bool _bm = false; // false = EN, true = BM. App will remember this later.
 
-  String get _placeholder => _bm
-      ? 'apa nak buat bila polis sekat kereta?'
-      : 'what to do when cops stop you on the road?';
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -83,12 +245,7 @@ class _HomeScreenState extends State<HomeScreen> {
           // Cool blue base gradient.
           const _Backdrop(),
           // Soft electric glow rising from the search bar.
-          const Positioned(
-            left: 0,
-            right: 0,
-            bottom: -120,
-            child: _Glow(),
-          ),
+          const Positioned(left: 0, right: 0, bottom: -120, child: _Glow()),
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
@@ -104,7 +261,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       mainAxisSpacing: 14,
                       crossAxisSpacing: 14,
                       childAspectRatio: 0.92,
-                      physics: const NeverScrollableScrollPhysics(),
                       children: [
                         for (final c in _categories)
                           _CategoryTile(category: c, bm: _bm),
@@ -112,7 +268,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                   const SizedBox(height: 14),
-                  _SearchBar(hint: _placeholder),
                 ],
               ),
             ),
@@ -132,7 +287,7 @@ class _Backdrop extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Ink.bg1, Ink.bg0],
+          colors: [YeKe.bg1, YeKe.bg1],
         ),
       ),
     );
@@ -166,16 +321,7 @@ class _TopBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        // Wordmark — lowercase, tight, a little loud.
-        const Text(
-          'byakugan',
-          style: TextStyle(
-            color: Ink.text,
-            fontSize: 22,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.5,
-          ),
-        ),
+        Image.asset('assets/images/logo-white.webp', height: 40),
         const Spacer(),
         _LangToggle(bm: bm, onToggle: onToggle),
         const SizedBox(width: 12),
@@ -184,11 +330,11 @@ class _TopBar extends StatelessWidget {
           height: 38,
           width: 38,
           decoration: BoxDecoration(
-            color: Ink.glass,
+            color: YeKe.glass,
             shape: BoxShape.circle,
-            border: Border.all(color: Ink.stroke),
+            border: Border.all(color: YeKe.stroke),
           ),
-          child: const Icon(Icons.person_outline, size: 20, color: Ink.sub),
+          child: const Icon(Icons.person_outline, size: 20, color: YeKe.sub),
         ),
       ],
     );
@@ -206,9 +352,9 @@ class _LangToggle extends StatelessWidget {
       height: 38,
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
-        color: Ink.glass,
+        color: YeKe.glass,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Ink.stroke),
+        border: Border.all(color: YeKe.stroke),
       ),
       child: Row(
         children: [
@@ -230,13 +376,13 @@ class _LangToggle extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: active ? Ink.glow : Colors.transparent,
+          color: active ? YeKe.glow : Colors.transparent,
           borderRadius: BorderRadius.circular(16),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: active ? Colors.white : Ink.sub,
+            color: active ? Colors.white : YeKe.sub,
             fontWeight: FontWeight.w700,
             fontSize: 13,
           ),
@@ -264,14 +410,16 @@ class _CategoryTile extends StatelessWidget {
               HapticFeedback.lightImpact();
               ScaffoldMessenger.of(context)
                 ..hideCurrentSnackBar()
-                ..showSnackBar(SnackBar(
-                  behavior: SnackBarBehavior.floating,
-                  backgroundColor: Ink.bg1,
-                  content: Text(
-                    'Next: "who is in front of you?" → ${category.en}',
-                    style: const TextStyle(color: Ink.text),
+                ..showSnackBar(
+                  SnackBar(
+                    behavior: SnackBarBehavior.floating,
+                    backgroundColor: YeKe.bg1,
+                    content: Text(
+                      'Next: "who is in front of you?" → ${category.en}',
+                      style: const TextStyle(color: YeKe.text),
+                    ),
                   ),
-                ));
+                );
             },
             child: Container(
               padding: const EdgeInsets.all(18),
@@ -279,13 +427,10 @@ class _CategoryTile extends StatelessWidget {
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [
-                    category.accent.withValues(alpha: 0.18),
-                    Ink.glass,
-                  ],
+                  colors: [category.accent.withValues(alpha: 0.18), YeKe.glass],
                 ),
                 borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: Ink.stroke),
+                border: Border.all(color: YeKe.stroke),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -297,13 +442,17 @@ class _CategoryTile extends StatelessWidget {
                       color: category.accent.withValues(alpha: 0.16),
                       borderRadius: BorderRadius.circular(14),
                     ),
-                    child: Icon(category.icon, color: category.accent, size: 24),
+                    child: Icon(
+                      category.icon,
+                      color: category.accent,
+                      size: 24,
+                    ),
                   ),
                   const Spacer(),
                   Text(
                     bm ? category.bm : category.en,
                     style: const TextStyle(
-                      color: Ink.text,
+                      color: YeKe.text,
                       fontSize: 19,
                       fontWeight: FontWeight.w800,
                       letterSpacing: -0.3,
@@ -314,69 +463,6 @@ class _CategoryTile extends StatelessWidget {
                   Container(height: 3, width: 26, color: category.accent),
                 ],
               ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SearchBar extends StatelessWidget {
-  final String hint;
-  const _SearchBar({required this.hint});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(26),
-        boxShadow: [
-          BoxShadow(
-            color: Ink.glow.withValues(alpha: 0.35),
-            blurRadius: 32,
-            spreadRadius: -6,
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(26),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(18, 6, 6, 6),
-            decoration: BoxDecoration(
-              color: const Color(0x1FFFFFFF),
-              borderRadius: BorderRadius.circular(26),
-              border: Border.all(color: const Color(0x33FFFFFF)),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.search, color: Ink.sub, size: 22),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextField(
-                    style: const TextStyle(color: Ink.text, fontSize: 15),
-                    cursorColor: Ink.glow,
-                    decoration: InputDecoration(
-                      isCollapsed: true,
-                      border: InputBorder.none,
-                      hintText: hint,
-                      hintStyle: const TextStyle(color: Ink.sub, fontSize: 15),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  height: 44,
-                  width: 44,
-                  decoration: const BoxDecoration(
-                    color: Ink.glow,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.arrow_upward, color: Colors.white, size: 22),
-                ),
-              ],
             ),
           ),
         ),

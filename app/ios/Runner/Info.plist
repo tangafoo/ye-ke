@@ -4,6 +4,12 @@
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Ye Ke uses the camera to livestream and document incidents.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Ye Ke records audio as part of livestreams.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Ye Ke uses your location to work out which state&#39;s laws and which authority&#39;s powers apply to you. It stays on your phone.</string>
 	<key>CFBundleDisplayName</key>
 	<string>Byakugan</string>
 	<key>CFBundleExecutable</key>
