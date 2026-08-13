@@ -79,7 +79,7 @@ class _AskScreenState extends State<AskScreen> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [YeKe.bg0, YeKe.bg1],
+            colors: [YeKe.night, YeKe.leather],
           ),
         ),
         child: SafeArea(
@@ -95,7 +95,7 @@ class _AskScreenState extends State<AskScreen> {
                       icon: const Icon(Icons.arrow_back, color: YeKe.sub),
                     ),
                     const SizedBox(width: 4),
-                    Image.asset('assets/images/logo.webp', height: 40),
+                    Image.asset('assets/images/logo-white.webp', height: 40),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -123,6 +123,7 @@ class _AskScreenState extends State<AskScreen> {
                             '${_answer.toString()}${_done ? '' : ' ▍'}',
                             style: const TextStyle(
                               color: YeKe.text,
+                              fontFamily: 'Faculty',
                               fontSize: 16,
                               height: 1.55,
                             ),

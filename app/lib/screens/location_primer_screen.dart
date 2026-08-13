@@ -40,95 +40,102 @@ class _LocationPrimerScreenState extends State<LocationPrimerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [YeKe.night, YeKe.bg1],
+    return Scaffold(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [YeKe.night, YeKe.bg1],
+          ),
         ),
-      ),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Spacer(),
-              Container(
-                height: 56,
-                width: 56,
-                decoration: BoxDecoration(
-                  color: YeKe.road.withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: YeKe.stroke),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Spacer(),
+                Image.asset('assets/images/location-primer.webp'),
+                Container(
+                  height: 56,
+                  width: 56,
+                  decoration: BoxDecoration(
+                    color: YeKe.road.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: YeKe.stroke),
+                  ),
+                  child: const Icon(
+                    Icons.place,
+                    color: YeKe.detained,
+                    size: 28,
+                  ),
                 ),
-                child: const Icon(Icons.place, color: YeKe.road, size: 28),
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                'Where you stand\nchanges the law.',
-                style: TextStyle(
-                  color: YeKe.text,
-                  fontSize: 30,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.4,
-                  height: 1.1,
+                const SizedBox(height: 20),
+                const Text(
+                  'Get alerts of\nnearby police activity',
+                  style: TextStyle(
+                    color: YeKe.text,
+                    fontSize: 30,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.4,
+                    height: 1.1,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 14),
-              const Text(
-                'Powers differ by state and by who is in front of you — '
-                'city hall in KL is not city hall in Selangor. Ye Ke uses '
-                'your location for one thing: picking the state whose rules '
-                'actually apply to you.',
-                style: TextStyle(color: YeKe.sub, fontSize: 15, height: 1.45),
-              ),
-              const SizedBox(height: 10),
-              const Text(
-                'Your location stays on your phone.',
-                style: TextStyle(
-                  color: YeKe.text,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
+                const SizedBox(height: 14),
+                const Text(
+                  'Witness an abuse of power?\n'
+                  "Use the livestream feature when you're in trouble.\n",
+                  style: TextStyle(color: YeKe.sub, fontSize: 15, height: 1.45),
                 ),
-              ),
-              const Spacer(),
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: FilledButton(
-                  onPressed: _busy ? null : _allow,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: YeKe.glow,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
+                const Text(
+                  'Ye Ke does not store your location ever.',
+                  style: TextStyle(
+                    color: YeKe.text,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const Spacer(),
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: FilledButton(
+                    onPressed: _busy ? null : _allow,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: YeKe.detained,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
                     ),
-                  ),
-                  child: const Text(
-                    'Turn on location',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                height: 44,
-                child: TextButton(
-                  onPressed: _busy ? null : _skip,
-                  child: const Text(
-                    'Not now',
-                    style: TextStyle(
-                      color: YeKe.sub,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
+                    child: const Text(
+                      'Turn on location',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  height: 44,
+                  child: TextButton(
+                    onPressed: _busy ? null : _skip,
+                    child: const Text(
+                      'Not now',
+                      style: TextStyle(
+                        color: YeKe.sub,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

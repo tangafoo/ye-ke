@@ -43,7 +43,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
             DraggableScrollableSheet(
               minChildSize: 0.02,
-              initialChildSize: 0.05,
+              initialChildSize: 0.03,
               maxChildSize: 0.30,
               snap: true,
               builder: (context, scrollController) {
@@ -146,7 +146,11 @@ class _SearchBarState extends State<_SearchBar> {
                 controller: _controller,
                 textInputAction: TextInputAction.search,
                 onSubmitted: (_) => _submit(),
-                style: const TextStyle(color: YeKe.night, fontSize: 15),
+                style: const TextStyle(
+                  color: YeKe.night,
+                  fontSize: 15,
+                  fontFamily: 'Faculty',
+                ),
                 cursorColor: YeKe.detained,
                 decoration: InputDecoration(
                   border: OutlineInputBorder(

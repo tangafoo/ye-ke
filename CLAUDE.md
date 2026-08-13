@@ -1,16 +1,27 @@
 # byakugan
 
-> Working codename (swap freely — sibling to shikamaru/pigweed/krakoa).
-> *Byakugan = the eye that sees through deception.* Fitting: it sees the law
-> clearly and sees through a bad-faith stop.
+> Working codename (sibling to shikamaru/pigweed/krakoa); ships publicly as
+> **Ye Ke**. *Byakugan = the eye that sees through deception.* Fitting: it sees
+> the law clearly, sees through a bad-faith stop — and now it watches back.
 
-A **know-your-rights** app for Malaysians. Grounded RAG over Malaysian statute
-law, delivered as **one-tap common scenarios** plus a free-text ask. Built so a
-citizen can, in the moment, see **exactly which section of the law applies** and
-**what they can lawfully do** — and quote it.
+A **police transparency** app for Malaysians (scope widened 2026-08-13; was
+know-your-rights only). Three surfaces, one stance:
 
-> This file is the intended design. **Nothing is built yet** — see "Build order".
-> Read this first, then build one phase at a time. Do NOT boil the ocean.
+1. **The law engine** — grounded RAG over Malaysian statute law: one-tap common
+   scenarios plus a free-text ask. In the moment, see **exactly which section
+   applies** and **what you can lawfully do** — and quote it. The original
+   core; every hard rule below still binds it, untouched.
+2. **The ledger** — a living map encyclopedia of police occurrences in
+   Malaysia: incidents, history, patterns, pinned to the place they happened.
+3. **Live** — urgent broadcast: in a bad situation you go live, nearby users
+   with notifications on get pinged, and the stream carries a location pin.
+
+The three feed each other: the law engine tells you where you stand, live is
+what you do when it's happening, the ledger is what remains — a public record
+that makes the next stop different.
+
+> This file is the intended design. Read this first, then build one phase at a
+> time. Do NOT boil the ocean.
 
 ## Why this exists
 
@@ -18,9 +29,16 @@ citizen can, in the moment, see **exactly which section of the law applies** and
   procedure, police-powers statutes) that almost nobody — including the author —
   has read. The asymmetry at a roadside stop is *information*: the officer knows
   (or claims to know) the law; the citizen doesn't.
-- **Cold-start-proof by design.** It grounds on a **static external corpus** —
-  the statutes themselves — *not* user-generated content. It's useful on day one
-  with zero users. (Same pattern as shikamaru's grounded-RAG-over-external-data.)
+- **Cold-start-proof at the core.** The law engine grounds on a **static
+  external corpus** — the statutes themselves — *not* user-generated content,
+  so the app is useful on day one with zero users. (shikamaru's
+  grounded-RAG-over-external-data pattern.) The ledger and live are the
+  network layer *on top*: they get better with users, but the app never
+  depends on them to be worth installing.
+- **Sunlight is the second defense.** Knowing the law helps at the stop;
+  a public, geographic record of how power actually behaves helps every stop
+  after. The ledger turns isolated incidents into visible patterns; live turns
+  a lone bad moment into a witnessed one.
 - The flagship scenario: *"I did not drink. The officer stopped my car and
   insists the breathalyzer is positive."* The app surfaces the relevant
   provisions, what a lawful test/procedure actually requires, and the citizen's
@@ -92,6 +110,11 @@ filled and ready.
   religious enforcement) religion**. The app resolves these first and answers
   *for that exact combination* — never a one-size answer across branches or
   states. Unknown combo → fail-soft, don't guess.
+- **The ledger never touches the law.** Incident pins, streams, and user
+  reports are *testimony*, not authority — same rule as news: they supply the
+  situation, **never** the legal answer. The statute corpus stays the only
+  grounding for what the law says. An unverified pin also never presents as
+  established fact — the ledger labels what's confirmed vs. reported.
 
 ## Authority / jurisdiction model
 
@@ -197,6 +220,43 @@ footnote is the only beat allowed to be empty.
 - **Quote view** — the exact statute text, section number, and source link, to
   show/read out.
 - **Source-out** — every answer links to the official source of the provision.
+- **Ledger map** — browse incidents by place; later, add pins.
+- **Live** — one-tap urgent stream with location pin + nearby-user push.
+
+## The transparency layer (ledger + live)
+
+The map screen is the home of both. Build in small steps — each step useful on
+its own:
+
+1. **Map v1** — `flutter_map` (chosen: open-source, tile-provider-agnostic, no
+   billing, markers are plain widgets, offline-cacheable later) + OSM tiles for
+   dev. Center on user via the location permission we already ask for.
+   Production tiles: MapTiler/Stadia free tier — one-line `urlTemplate` swap;
+   OSM's public server is dev-only by usage policy.
+2. **Pins from DB** — `incidents` table (lat/lng, kind, time, description,
+   status), `GET /incidents?bbox=` on map pan, marker layer + clustering
+   (`flutter_map_supercluster`). Read-only ledger first.
+3. **Pin adding** — user-submitted incidents. This is the first UGC surface
+   and the guardrails are the feature (see below).
+4. **Live** — stream from the camera FAB's "urgent" path; store location pin;
+   push to nearby users (FCM; devices register a coarse home area or last
+   location — decide granularity with privacy in mind); stream lands in the
+   ledger afterward as an incident with footage.
+
+**UGC guardrails (non-negotiable for the ledger).** A false pin does to the
+ledger what a hallucinated section does to the law engine — poisons trust in
+the one thing the app has. So: incidents carry a status (`reported` →
+`corroborated` → `verified`), unverified content is visibly labeled and never
+framed as established fact, there's a report/dispute path, and accusations
+naming individuals need review before public display (defamation exposure is
+real in Malaysia — get actual legal input before pin-adding ships publicly).
+Moderation is editorial work; budget for it or gate submissions.
+
+**Safety design for live.** Streamer safety first: no public "person X is
+streaming here" to the whole world — nearby pings only, radius tuned;
+consider delayed pin precision; retention and takedown policy decided before
+launch, not after the first subpoena. The camera FAB's existing
+urgent-mode/livestream stubs in the app shell are the entry point.
 
 ## Architecture
 
@@ -243,6 +303,9 @@ quote. **byakugan sees; rasengan acts.**
   autonomy lives: it plans and **acts** — fills government forms for a Malaysian
   who has never read the law, drafts a complaint or a real legal-action letter
   to a practitioner, prepares an IPCMC/SUHAKAM submission, sets follow-ups.
+  (As of 2026-08-13 rasengan is in scope for this effort, not a someday-repo —
+  the ledger feeds it naturally: an incident + the engine's grounded sections
+  = a complaint draft with evidence attached.)
   - **Hard sandbox: rasengan never holds the law.** It can only obtain facts by
     calling byakugan's grounded tools. So it **cannot hallucinate a section** —
     it can only quote what the engine hands it. The hard product rules survive
@@ -339,7 +402,10 @@ breaks the hard rule.
    Hard rule for both: the article supplies the *situation*, **never** the legal
    answer. The statute + corpus stays the only source of truth. News is context
    and discovery, never grounding.
-8. **(Later) livestream / evidence capture** — explicitly out of scope for v1.
+8. **Transparency layer, in baby steps** (see "The transparency layer"):
+   map v1 (flutter_map + tiles) → pins from DB (read-only ledger) → pin
+   adding (only after UGC guardrails) → live + nearby push. Promoted from
+   out-of-scope on 2026-08-13 — this is now a core surface, not an extra.
 9. **Expose the engine (`byakugan` as a tool).** Wrap `ask` / `search_law` /
    `get_section` as an **MCP server + HTTP API** so external agents and apps can
    consume grounded Malaysian law. Small once phase 3 works; this is the

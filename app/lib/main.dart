@@ -1,4 +1,6 @@
 import 'dart:ui';
+import 'package:byakugan/screens/live_screen.dart';
+
 import 'screens/chat_screen.dart';
 import 'screens/location_primer_screen.dart';
 import 'screens/map_screen.dart';
@@ -102,6 +104,9 @@ class _AppShellState extends State<AppShell> {
     if (!mounted) return;
     switch (choice) {
       case 'live':
+        Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const LiveScreen()));
       case 'report':
       case null:
     }
@@ -154,8 +159,20 @@ class _CameraActions extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text("Start a Livestream", style: TextStyle(color: YeKe.door)),
-            Text("Make a Post", style: TextStyle(color: YeKe.door)),
+            ListTile(
+              tileColor: YeKe.door,
+              title: Text(
+                'Start a Livestream',
+                style: TextStyle(color: Colors.white),
+              ),
+              onTap: () => Navigator.pop(context, 'live'),
+            ),
+            const SizedBox(height: 10),
+            ListTile(
+              tileColor: YeKe.paint,
+              title: Text('Make a Post', style: TextStyle(color: Colors.white)),
+              onTap: () {},
+            ),
           ],
         ),
       ),
@@ -174,7 +191,7 @@ class ByakuganApp extends StatelessWidget {
       theme: ThemeData(
         brightness: Brightness.dark,
         scaffoldBackgroundColor: YeKe.bg0,
-        fontFamily: 'Roboto',
+        fontFamily: 'Chelsea',
         useMaterial3: true,
       ),
       home: const StartupGate(),
