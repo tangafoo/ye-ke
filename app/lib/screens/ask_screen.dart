@@ -100,35 +100,23 @@ class _AskScreenState extends State<AskScreen> {
                 ),
                 const SizedBox(height: 12),
 
-                Text(
-                  widget.question,
-                  style: const TextStyle(
-                    color: YeKe.text,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.4,
-                    height: 1.15,
-                  ),
-                ),
-                const SizedBox(height: 16),
-
                 Expanded(
-                  child: _error != null
-                      ? Align(
+                  child: ListView(
+                    reverse: false,
+                    children: [
+                      if (_error != null)
+                        Align(
                           alignment: Alignment.topCenter,
                           child: _ErrorBanner(message: _error!),
                         )
-                      : SingleChildScrollView(
-                          child: Text(
-                            '${_answer.toString()}${_done ? '' : ' ▍'}',
-                            style: const TextStyle(
-                              color: YeKe.text,
-                              fontFamily: 'Faculty',
-                              fontSize: 16,
-                              height: 1.55,
-                            ),
-                          ),
+                      else
+                        _Bubble.theirs(
+                          '${_answer.toString()}${_done ? '' : ' ▍'}',
                         ),
+                      const SizedBox(height: 14),
+                      _Bubble.mine(widget.question),
+                    ],
+                  ),
                 ),
 
                 if (_interrupted)
@@ -198,6 +186,49 @@ class _ErrorBanner extends StatelessWidget {
       child: Text(
         message,
         style: const TextStyle(color: YeKe.text, fontSize: 14, height: 1.4),
+      ),
+    );
+  }
+}
+
+class _Bubble extends StatelessWidget {
+  final String text;
+  final bool mine;
+
+  const _Bubble.mine(this.text) : mine = true;
+  const _Bubble.theirs(this.text) : mine = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.sizeOf(context).width * 0.78,
+        ),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: mine ? YeKe.detained : YeKe.glass,
+            border: mine ? null : Border.all(color: YeKe.stroke),
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(mine ? 10 : 18),
+              topRight: Radius.circular(mine ? 18 : 10),
+              bottomLeft: Radius.circular(mine ? 18 : 0),
+              bottomRight: Radius.circular(mine ? 0 : 18),
+            ),
+          ),
+          child: Text(
+            text,
+            style: TextStyle(
+              color: mine ? YeKe.bg0 : YeKe.text,
+              fontSize: 15,
+              fontWeight: mine ? FontWeight.w700 : FontWeight.w400,
+              fontFamily: mine ? null : 'Faculty',
+              height: 1.5,
+            ),
+          ),
+        ),
       ),
     );
   }
