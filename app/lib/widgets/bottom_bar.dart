@@ -8,8 +8,8 @@ class MenuItem {
 }
 
 const _menuItems = <MenuItem>[
-  MenuItem('Map', 'assets/images/map-icon.webp'),
   MenuItem('Chat', 'assets/images/chat-icon.webp'),
+  MenuItem('Map', 'assets/images/map-icon.webp'),
   MenuItem('User', 'assets/images/user-icon.webp'),
 ];
 

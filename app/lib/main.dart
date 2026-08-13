@@ -5,7 +5,6 @@ import 'screens/profile_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'screens/ask_screen.dart';
 import 'widgets/bottom_bar.dart';
 
 import 'theme/ye_ke.dart';
@@ -57,7 +56,7 @@ class _AppShellState extends State<AppShell> {
         children: [
           IndexedStack(
             index: _index,
-            children: const [MapScreen(), ChatScreen(), ProfileScreen()],
+            children: const [ChatScreen(), MapScreen(), ProfileScreen()],
           ),
           Positioned(
             top: 0,
@@ -67,7 +66,7 @@ class _AppShellState extends State<AppShell> {
                 padding: const EdgeInsets.only(top: 12, right: 12),
                 child: Image.asset(
                   'assets/images/activity-icon.webp',
-                  height: 50,
+                  height: 42,
                 ),
               ),
             ),
@@ -162,16 +161,6 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   bool _bm = false; // false = EN, true = BM. App will remember this later.
 
-  String get _placeholder => _bm
-      ? 'apa nak buat bila polis sekat kereta?'
-      : 'what to do when cops stop you on the road?';
-
-  void _ask(String question) {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => AskScreen(question: question)));
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -203,7 +192,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                   const SizedBox(height: 14),
-                  _SearchBar(hint: _placeholder, onSubmit: _ask),
                 ],
               ),
             ),
@@ -404,98 +392,5 @@ class _CategoryTile extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-class _SearchBar extends StatefulWidget {
-  final String hint;
-  final ValueChanged<String> onSubmit;
-
-  const _SearchBar({required this.hint, required this.onSubmit});
-
-  @override
-  State<_SearchBar> createState() => _SearchBarState();
-}
-
-class _SearchBarState extends State<_SearchBar> {
-  final _controller = TextEditingController();
-
-  void _submit() {
-    final q = _controller.text.trim();
-    if (q.isEmpty) return;
-
-    HapticFeedback.lightImpact();
-    widget.onSubmit(q);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(26),
-        boxShadow: [
-          BoxShadow(
-            color: YeKe.glow.withValues(alpha: 0.35),
-            blurRadius: 32,
-            spreadRadius: -6,
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(26),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(18, 6, 6, 6),
-            decoration: BoxDecoration(
-              color: const Color(0x1FFFFFFF),
-              borderRadius: BorderRadius.circular(26),
-              border: Border.all(color: const Color(0x33FFFFFF)),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.search, color: YeKe.sub, size: 22),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextField(
-                    controller: _controller,
-                    textInputAction: TextInputAction.search,
-                    onSubmitted: (_) => _submit(),
-                    style: const TextStyle(color: YeKe.text, fontSize: 15),
-                    cursorColor: YeKe.glow,
-                    decoration: InputDecoration(
-                      isCollapsed: true,
-                      border: InputBorder.none,
-                      hintText: widget.hint,
-                      hintStyle: const TextStyle(color: YeKe.sub, fontSize: 15),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  height: 44,
-                  width: 44,
-                  decoration: const BoxDecoration(
-                    color: YeKe.glow,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.arrow_upward,
-                    color: Colors.white,
-                    size: 22,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
   }
 }
