@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 /// Chrome is loud; the law (later) will be calm. This is the loud surface.
 class YeKe {
   static const bg0 = Color(0xFFF5F5F5); // near-black navy
-  static const bg1 = Color(0xFF303841); // deep blue
+  static const bg1 = Color(0xFF262c34); // deep blue
   static const glow = Color(0xFF2E6BFF); // electric blue (search glow)
   static const glass = Color(0x14FFFFFF); // 8% white — glass fill
   static const stroke = Color(0x1FFFFFFF); // 12% white — glass edge

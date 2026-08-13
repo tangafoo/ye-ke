@@ -23,7 +23,13 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: YeKe.night,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [YeKe.night, YeKe.bg1],
+        ),
+      ),
       child: SafeArea(
         child: Stack(
           children: [
@@ -49,7 +55,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
                     child: Container(
                       decoration: BoxDecoration(
-                        color: YeKe.paper.withValues(alpha: 0.4),
+                        color: YeKe.leather.withValues(alpha: 0.6),
                         border: const Border(
                           top: BorderSide(color: Color(0x33FFFFFF)),
                         ),
@@ -77,7 +83,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                 child: Text(
                                   "Urgent Mode",
                                   style: TextStyle(
-                                    fontSize: 20,
+                                    fontSize: 18,
                                     color: Color(0xFF000000),
                                     fontWeight: FontWeight.w800,
                                   ),

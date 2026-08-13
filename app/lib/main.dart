@@ -1,16 +1,75 @@
 import 'dart:ui';
 import 'screens/chat_screen.dart';
+import 'screens/location_primer_screen.dart';
 import 'screens/map_screen.dart';
 import 'screens/profile_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import 'services/identity_service.dart';
 import 'widgets/bottom_bar.dart';
 
 import 'theme/ye_ke.dart';
 
 void main() {
   runApp(const ByakuganApp());
+}
+
+const _kPrimerDone = 'location_primer_done';
+
+/// Startup gate: kicks off anonymous registration (fire-and-forget, never
+/// blocks launch) and decides whether the location primer runs before the
+/// shell. The primer shows once — after that, straight to the app.
+class StartupGate extends StatefulWidget {
+  const StartupGate({super.key});
+
+  @override
+  State<StartupGate> createState() => _StartupGateState();
+}
+
+class _StartupGateState extends State<StartupGate> {
+  bool? _showPrimer; // null while deciding
+
+  @override
+  void initState() {
+    super.initState();
+    _decide();
+  }
+
+  Future<void> _decide() async {
+    IdentityService().ensureRegistered();
+
+    final prefs = await SharedPreferences.getInstance();
+    var show = false;
+    if (!(prefs.getBool(_kPrimerDone) ?? false)) {
+      try {
+        // `denied` is also the never-asked state — the one the primer is for.
+        show = await Geolocator.checkPermission() == LocationPermission.denied;
+      } catch (_) {
+        show = false; // platform without location support
+      }
+    }
+    if (!mounted) return;
+    setState(() => _showPrimer = show);
+  }
+
+  Future<void> _primerFinished() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kPrimerDone, true);
+    if (!mounted) return;
+    setState(() => _showPrimer = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return switch (_showPrimer) {
+      null => const ColoredBox(color: YeKe.night),
+      true => LocationPrimerScreen(onFinished: _primerFinished),
+      false => const AppShell(),
+    };
+  }
 }
 
 class AppShell extends StatefulWidget {
@@ -118,7 +177,7 @@ class ByakuganApp extends StatelessWidget {
         fontFamily: 'Roboto',
         useMaterial3: true,
       ),
-      home: const AppShell(),
+      home: const StartupGate(),
     );
   }
 }
