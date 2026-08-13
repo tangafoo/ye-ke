@@ -76,7 +76,7 @@ func withCORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
@@ -129,6 +129,7 @@ func main() {
 	}
 
 	mux.HandleFunc("POST /ask", srv.handleAsk)
+	mux.HandleFunc("POST /users/anonymous", srv.handleAnonymousUser)
 
 	fmt.Println("Server is running on http://localhost:8080")
 	log.Fatal(server.ListenAndServe())
@@ -155,6 +156,11 @@ func (s *byakuganServer) handleAsk(w http.ResponseWriter, r *http.Request) {
 		log.Println("Defaulting to en...")
 		req.Lang = "en"
 	}
+
+	// Optional identity: stamps last_seen; later slices (history sync,
+	// per-user quotas) will use the returned id. Never logged with the
+	// question — who asked and what they asked stay unjoined in our logs.
+	_ = s.userID(r)
 
 	vectors, err := s.voyage.Embed(r.Context(), voyage.Query, []string{req.Question})
 	if err != nil {
