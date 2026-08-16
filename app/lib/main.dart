@@ -160,18 +160,12 @@ class _CameraActions extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             ListTile(
-              tileColor: YeKe.door,
+              tileColor: YeKe.detained,
               title: Text(
-                'Start a Livestream',
-                style: TextStyle(color: Colors.white),
+                'Start Livestream',
+                style: TextStyle(color: Colors.white, fontFamily: 'Faculty'),
               ),
               onTap: () => Navigator.pop(context, 'live'),
-            ),
-            const SizedBox(height: 10),
-            ListTile(
-              tileColor: YeKe.paint,
-              title: Text('Make a Post', style: TextStyle(color: Colors.white)),
-              onTap: () {},
             ),
           ],
         ),
