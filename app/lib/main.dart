@@ -5,10 +5,14 @@ import 'screens/chat_screen.dart';
 import 'screens/location_primer_screen.dart';
 import 'screens/map_screen.dart';
 import 'screens/profile_screen.dart';
+import 'screens/notification_primer_screen.dart';
+import 'screens/yeke_primer_screen.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import 'services/identity_service.dart';
 import 'widgets/bottom_bar.dart';
@@ -19,11 +23,6 @@ void main() {
   runApp(const ByakuganApp());
 }
 
-const _kPrimerDone = 'location_primer_done';
-
-/// Startup gate: kicks off anonymous registration (fire-and-forget, never
-/// blocks launch) and decides whether the location primer runs before the
-/// shell. The primer shows once — after that, straight to the app.
 class StartupGate extends StatefulWidget {
   const StartupGate({super.key});
 
@@ -31,46 +30,164 @@ class StartupGate extends StatefulWidget {
   State<StartupGate> createState() => _StartupGateState();
 }
 
+enum _Stage { deciding, primers, ready }
+
 class _StartupGateState extends State<StartupGate> {
-  bool? _showPrimer; // null while deciding
+  _Stage _stage = _Stage.deciding;
+
+  var _pages = <Widget Function(VoidCallback)>[];
+  final _shownKeys = <String>[];
 
   @override
   void initState() {
     super.initState();
+    IdentityService().ensureRegistered();
     _decide();
   }
 
-  Future<void> _decide() async {
-    IdentityService().ensureRegistered();
+  final _kLocationPrimerDone = "location_primer_done";
+  final _kNotifPrimerDone = "notification_primer_done";
+  final _kYekePrimerDone = "yeke_primer_done";
 
-    final prefs = await SharedPreferences.getInstance();
-    var show = false;
-    if (!(prefs.getBool(_kPrimerDone) ?? false)) {
-      try {
-        // `denied` is also the never-asked state — the one the primer is for.
-        show = await Geolocator.checkPermission() == LocationPermission.denied;
-      } catch (_) {
-        show = false; // platform without location support
-      }
+  Future<bool> _needsLocationPrimer(SharedPreferences prefs) async {
+    if (prefs.getBool(_kLocationPrimerDone) ?? false) return false;
+    try {
+      return await Geolocator.checkPermission() == LocationPermission.denied;
+    } catch (_) {
+      return false;
     }
-    if (!mounted) return;
-    setState(() => _showPrimer = show);
   }
 
-  Future<void> _primerFinished() async {
+  Future<bool> _needsNotificationPrimer(SharedPreferences prefs) async {
+    if (prefs.getBool(_kNotifPrimerDone) ?? false) return false;
+    try {
+      return await (Permission.notification.status).isDenied;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  bool _needsYekePrimer(SharedPreferences prefs) =>
+      !(prefs.getBool(_kYekePrimerDone) ?? false);
+
+  Future<void> _decide() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_kPrimerDone, true);
+    final pages = <Widget Function(VoidCallback)>[];
+
+    if (await _needsLocationPrimer(prefs)) {
+      _shownKeys.add(_kLocationPrimerDone);
+      pages.add((next) => LocationPrimerScreen(onFinished: next));
+    }
+    if (await _needsNotificationPrimer(prefs)) {
+      _shownKeys.add(_kNotifPrimerDone);
+      pages.add((next) => NotificationPrimerScreen(onFinished: next));
+    }
+
+    if (_needsYekePrimer(prefs)) {
+      _shownKeys.add(_kYekePrimerDone);
+      pages.add((next) => YekePrimerScreen(onFinished: next));
+    }
+
     if (!mounted) return;
-    setState(() => _showPrimer = false);
+    setState(() {
+      _pages = pages;
+      _stage = pages.isEmpty ? _Stage.ready : _Stage.primers;
+    });
+  }
+
+  Future<void> _finishFlow() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    for (final k in _shownKeys) {
+      await prefs.setBool(k, true);
+    }
+
+    if (!mounted) return;
+    setState(() => _stage = _Stage.ready);
   }
 
   @override
   Widget build(BuildContext context) {
-    return switch (_showPrimer) {
-      null => const ColoredBox(color: YeKe.night),
-      true => LocationPrimerScreen(onFinished: _primerFinished),
-      false => const AppShell(),
+    return switch (_stage) {
+      _Stage.deciding => const ColoredBox(color: YeKe.night),
+      _Stage.primers => PrimerFlow(
+        pageBuilders: _pages,
+        onCompletePrimers: _finishFlow,
+      ),
+      _Stage.ready => const AppShell(),
     };
+  }
+}
+
+class PrimerFlow extends StatefulWidget {
+  final List<Widget Function(VoidCallback next)> pageBuilders;
+  final VoidCallback onCompletePrimers;
+
+  const PrimerFlow({
+    super.key,
+    required this.pageBuilders,
+    required this.onCompletePrimers,
+  });
+
+  @override
+  State<PrimerFlow> createState() => _PrimerFlowState();
+}
+
+class _PrimerFlowState extends State<PrimerFlow> {
+  final _controller = PageController();
+  var _page = 0;
+
+  void _next() {
+    if (_page >= widget.pageBuilders.length - 1) {
+      widget.onCompletePrimers();
+      return;
+    }
+    _controller.nextPage(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Stack(
+        children: [
+          PageView(
+            controller: _controller,
+            onPageChanged: (i) => setState(() => _page = i),
+            children: [for (final b in widget.pageBuilders) b(_next)],
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 18,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                for (var i = 0; i < widget.pageBuilders.length; i++)
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    height: 8,
+                    width: i == _page ? 22 : 8,
+                    decoration: BoxDecoration(
+                      color: i == _page ? YeKe.stand : YeKe.cement,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

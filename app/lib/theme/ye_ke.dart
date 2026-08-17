@@ -22,4 +22,8 @@ class YeKe {
   static const leather = Color(0xFF7D7463);
   static const paper = Color(0xFFF4E0B9);
   static const cement = Color(0xFFA8A196);
+  static const dusky = Color(0xFF524646);
+  static const scaley = Color(0xFF776B5D);
+  static const sceptile = Color(0xFF5C6F2B);
+  static const oddish = Color(0xFF9EB23B);
 }

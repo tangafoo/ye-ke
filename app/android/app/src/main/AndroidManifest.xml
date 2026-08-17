@@ -2,6 +2,7 @@
     <!-- Location resolves which state's law (and which authority) applies. -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application
         android:label="byakugan"
         android:name="${applicationName}"
