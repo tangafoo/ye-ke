@@ -56,8 +56,12 @@ func (s *byakuganServer) handlePingCreate(w http.ResponseWriter, r *http.Request
 	}
 
 	p, err := s.store.AddPing(r.Context(), me, req.Kind, req.Lat, req.Lng)
+	if errors.Is(err, store.ErrPingKindInvalid) {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 	if errors.Is(err, store.ErrPingCooldown) {
-		http.Error(w, "easy - one ping every 5 mins", http.StatusTooManyRequests)
+		http.Error(w, "easy - one ping every 3 mins", http.StatusTooManyRequests)
 		return
 	}
 

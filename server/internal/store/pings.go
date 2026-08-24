@@ -10,6 +10,7 @@ import (
 )
 
 var ErrPingCooldown = errors.New("ping cooldown active")
+var ErrPingKindInvalid = errors.New("kind must be 'roadblock' or 'patrol'")
 
 type Ping struct {
 	ID        string
@@ -18,6 +19,14 @@ type Ping struct {
 	Lat       float64
 	Lng       float64
 	CreatedAt time.Time
+}
+
+func (p Ping) isKindValid() bool {
+	switch p.Kind {
+	case "roadblock", "patrol":
+		return true
+	}
+	return false
 }
 
 const addPingSQL = `
@@ -31,6 +40,10 @@ const addPingSQL = `
 
 func (s *Store) AddPing(ctx context.Context, userID, kind string, lat, lng float64) (Ping, error) {
 	p := Ping{UserID: userID, Kind: kind, Lat: lat, Lng: lng}
+	if !p.isKindValid() {
+		return Ping{}, ErrPingKindInvalid
+	}
+
 	err := s.pool.QueryRow(ctx, addPingSQL, userID, kind, lat, lng, PingCooldown).Scan(&p.ID, &p.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Ping{}, ErrPingCooldown
