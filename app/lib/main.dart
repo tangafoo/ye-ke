@@ -239,19 +239,19 @@ class _AppShellState extends State<AppShell> {
             index: _index,
             children: const [ChatScreen(), MapScreen(), ProfileScreen()],
           ),
-          Positioned(
-            top: 0,
-            right: 0,
-            child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.only(top: 12, right: 12),
-                child: Image.asset(
-                  'assets/images/activity-icon.webp',
-                  height: 42,
-                ),
-              ),
-            ),
-          ),
+          // Positioned(
+          //   top: 0,
+          //   right: 0,
+          //   child: SafeArea(
+          //     child: Padding(
+          //       padding: const EdgeInsets.only(top: 12, right: 12),
+          //       child: Image.asset(
+          //         'assets/images/activity-icon.webp',
+          //         height: 42,
+          //       ),
+          //     ),
+          //   ),
+          // ),
         ],
       ),
       floatingActionButton: CameraButton(onTap: () => _onCamera()),

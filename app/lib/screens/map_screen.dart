@@ -6,6 +6,7 @@ import 'package:geolocator/geolocator.dart';
 import 'dart:async';
 
 import '../models/ping.dart';
+import '../widgets/radar_view.dart';
 import '../api/ping_client.dart';
 import '../config.dart';
 import '../services/identity_service.dart';
@@ -22,6 +23,7 @@ class _MapScreenState extends State<MapScreen> {
   final _mapController = MapController();
   final _client = PingClient(baseUrl: apiBaseUrl);
 
+  var _radarOpen = true;
   var _busy = false;
   List<Ping> _pings = [];
   Timer? _debounce;
@@ -35,7 +37,7 @@ class _MapScreenState extends State<MapScreen> {
   Future<void> _centerOnMe() async {
     try {
       final pos = await Geolocator.getCurrentPosition();
-      _mapController.move(LatLng(pos.latitude, pos.longitude), 15);
+      _mapController.move(LatLng(pos.latitude, pos.longitude), 30);
     } catch (_) {}
   }
 
@@ -77,7 +79,7 @@ class _MapScreenState extends State<MapScreen> {
       );
       if (p == null || !mounted) return;
 
-      _mapController.move(LatLng(p.lat, p.lng), 15);
+      _mapController.move(LatLng(p.lat, p.lng), 30);
       await _refresh();
     } on PingCooldownException catch (e) {
       if (mounted) {
@@ -97,25 +99,187 @@ class _MapScreenState extends State<MapScreen> {
     super.dispose();
   }
 
+  var _rangeControlsOpened = false;
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: YeKe.paper,
-      body: FlutterMap(
-        mapController: _mapController,
-        options: MapOptions(
-          onMapReady: _refresh,
-          initialCenter: LatLng(3.1390, 101.6869),
-          initialZoom: 12,
-          onPositionChanged: _onPositionChanged,
-        ),
-        children: [
-          TileLayer(
-            urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-            userAgentPackageName: 'com.byakugan.byakugan',
+    return Column(
+      children: [
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeInOut,
+          height: _radarOpen ? MediaQuery.sizeOf(context).height / 3 : 0,
+          width: double.infinity,
+          color: YeKe.bg1,
+          child: ClipRect(
+            child: SafeArea(
+              bottom: false,
+              child: Row(
+                children: [
+                  Expanded(
+                    flex: 1,
+                    child: Column(
+                      children: [
+                        if (_rangeControlsOpened)
+                          Expanded(
+                            flex: 3,
+                            child: Text('Range', textAlign: TextAlign.center),
+                          )
+                        else ...[
+                          Expanded(
+                            child: Container(
+                              height: 20,
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                color: YeKe.bg1,
+                                border: BoxBorder.fromLTRB(
+                                  bottom: BorderSide(color: YeKe.night),
+                                ),
+                              ),
+                              child: const Icon(
+                                Icons.newspaper,
+                                color: YeKe.paper,
+                                size: 42,
+                              ),
+                            ),
+                          ),
+
+                          Expanded(
+                            child: Container(
+                              height: 20,
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                color: YeKe.scaley,
+                                border: BoxBorder.fromLTRB(
+                                  bottom: BorderSide(color: YeKe.night),
+                                ),
+                              ),
+                              child: const Icon(
+                                Icons.remove_red_eye,
+                                color: YeKe.paper,
+                                size: 42,
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: Container(
+                              height: 20,
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                color: YeKe.scaley,
+                                border: BoxBorder.fromLTRB(
+                                  bottom: BorderSide(color: YeKe.night),
+                                ),
+                              ),
+                              child: const Icon(
+                                Icons.houseboat,
+                                color: YeKe.paper,
+                                size: 42,
+                              ),
+                            ),
+                          ),
+                        ],
+
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => setState(
+                              () =>
+                                  _rangeControlsOpened = !_rangeControlsOpened,
+                            ),
+                            child: Container(
+                              height: 20,
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                color: YeKe.scaley,
+                                border: BoxBorder.fromLTRB(
+                                  bottom: BorderSide(color: YeKe.night),
+                                ),
+                              ),
+                              child: const Icon(
+                                Icons.engineering,
+                                color: YeKe.paper,
+                                size: 42,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    flex: 5,
+                    child: Column(
+                      children: [
+                        Container(
+                          width: double.infinity,
+                          color: YeKe.cement,
+                          alignment: Alignment.center,
+                          child: Text(
+                            'Scanner 2.0 ACAB ANTIFA',
+                            style: const TextStyle(
+                              fontFamily: 'Faculty',
+                              color: YeKe.bg1,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Container(
+                            decoration: const BoxDecoration(color: YeKe.cement),
+                            padding: const EdgeInsets.fromLTRB(16, 0, 14, 16),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: YeKe.night,
+                                borderRadius: BorderRadius.circular(16),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: YeKe.scaley,
+                                    offset: const Offset(6, 0),
+                                  ),
+                                ],
+                              ),
+                              child: RadarView(),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
-        ],
-      ),
+        ),
+        GestureDetector(
+          onTap: () => setState(() => _radarOpen = !_radarOpen),
+          child: Container(
+            width: double.infinity,
+            color: YeKe.dusky,
+            padding: const EdgeInsets.symmetric(vertical: 2),
+            child: Icon(
+              _radarOpen ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+              size: 16,
+              color: YeKe.sub,
+            ),
+          ),
+        ),
+        Expanded(
+          child: FlutterMap(
+            mapController: _mapController,
+            options: MapOptions(
+              onMapReady: _refresh,
+              initialCenter: LatLng(3.1390, 101.6869),
+              initialZoom: 12,
+              onPositionChanged: _onPositionChanged,
+            ),
+            children: [
+              TileLayer(
+                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                userAgentPackageName: 'com.byakugan.byakugan',
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
