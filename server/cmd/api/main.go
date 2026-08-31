@@ -94,8 +94,13 @@ func main() {
 	mux := http.NewServeMux()
 	_ = godotenv.Load()
 
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
 	server := &http.Server{
-		Addr:         ":8080",
+		Addr:         ":" + port,
 		Handler:      withCORS(mux),
 		ReadTimeout:  60 * time.Second,
 		WriteTimeout: 240 * time.Second,
@@ -127,6 +132,10 @@ func main() {
 		log.Fatalf("Could not connect to store: %v", err)
 	}
 	defer st.Close()
+
+	if err := st.Migrate(ctx); err != nil {
+		log.Fatalf("migrate: %v", err)
+	}
 
 	// Dependency injection
 	srv := &byakuganServer{
