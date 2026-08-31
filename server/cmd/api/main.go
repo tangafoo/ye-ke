@@ -11,6 +11,7 @@ import (
 
 	ykanthropic "byakugan/internal/anthropic"
 	"byakugan/internal/corpus"
+	"byakugan/internal/scribe"
 	"byakugan/internal/store"
 	"byakugan/internal/voyage"
 
@@ -64,6 +65,7 @@ type byakuganServer struct {
 	voyage    *voyage.Client
 	store     *store.Store
 	anthropic *ykanthropic.Client
+	scribe    *scribe.Client
 }
 
 // refsK caps how many related ROWS refs expansion may add to the prompt. The
@@ -92,8 +94,13 @@ func main() {
 	mux := http.NewServeMux()
 	_ = godotenv.Load()
 
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
 	server := &http.Server{
-		Addr:         ":8080",
+		Addr:         ":" + port,
 		Handler:      withCORS(mux),
 		ReadTimeout:  60 * time.Second,
 		WriteTimeout: 240 * time.Second,
@@ -103,6 +110,11 @@ func main() {
 	voyageKey := os.Getenv("VOYAGE_API_KEY")
 	if voyageKey == "" {
 		log.Fatal("Voyage API key not set")
+	}
+
+	scribeKey := os.Getenv("ELEVENLABS_API_KEY")
+	if scribeKey == "" {
+		log.Fatal("Eleven Labs key not set")
 	}
 
 	dbURL := os.Getenv("DATABASE_URL")
@@ -121,17 +133,23 @@ func main() {
 	}
 	defer st.Close()
 
+	if err := st.Migrate(ctx); err != nil {
+		log.Fatalf("migrate: %v", err)
+	}
+
 	// Dependency injection
 	srv := &byakuganServer{
 		voyage:    voyage.New(voyageKey),
 		store:     st,
 		anthropic: ykanthropic.New(anthropicKey),
+		scribe:    scribe.New(scribeKey),
 	}
 
 	mux.HandleFunc("POST /ask", srv.handleAsk)
 	mux.HandleFunc("POST /users/anonymous", srv.handleAnonymousUser)
 	mux.HandleFunc("POST /pings", srv.handlePingCreate)
 	mux.HandleFunc("GET /pings", srv.handlePingList)
+	mux.HandleFunc("POST /transcribe", srv.handleTranscribe)
 
 	fmt.Println("Server is running on http://localhost:8080")
 	log.Fatal(server.ListenAndServe())
