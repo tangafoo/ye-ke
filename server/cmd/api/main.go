@@ -11,6 +11,7 @@ import (
 
 	ykanthropic "byakugan/internal/anthropic"
 	"byakugan/internal/corpus"
+	"byakugan/internal/scribe"
 	"byakugan/internal/store"
 	"byakugan/internal/voyage"
 
@@ -64,6 +65,7 @@ type byakuganServer struct {
 	voyage    *voyage.Client
 	store     *store.Store
 	anthropic *ykanthropic.Client
+	scribe    *scribe.Client
 }
 
 // refsK caps how many related ROWS refs expansion may add to the prompt. The
@@ -105,6 +107,11 @@ func main() {
 		log.Fatal("Voyage API key not set")
 	}
 
+	scribeKey := os.Getenv("ELEVENLABS_API_KEY")
+	if scribeKey == "" {
+		log.Fatal("Eleven Labs key not set")
+	}
+
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
 		dbURL = "postgres://byakugan:byakugan@localhost:5433/byakugan"
@@ -126,12 +133,14 @@ func main() {
 		voyage:    voyage.New(voyageKey),
 		store:     st,
 		anthropic: ykanthropic.New(anthropicKey),
+		scribe:    scribe.New(scribeKey),
 	}
 
 	mux.HandleFunc("POST /ask", srv.handleAsk)
 	mux.HandleFunc("POST /users/anonymous", srv.handleAnonymousUser)
 	mux.HandleFunc("POST /pings", srv.handlePingCreate)
 	mux.HandleFunc("GET /pings", srv.handlePingList)
+	mux.HandleFunc("POST /transcribe", srv.handleTranscribe)
 
 	fmt.Println("Server is running on http://localhost:8080")
 	log.Fatal(server.ListenAndServe())
