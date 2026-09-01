@@ -1,0 +1,33 @@
+name: seed-corpus
+
+on:
+  push:
+    branches: [main]
+    paths: ['corpus/chunks/**']
+  workflow_dispatch:
+
+jobs:
+  embed:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: server/go.mod
+
+      - name: Install Railway CLI
+        run: npm i -g @railway/cli
+
+      - name: Open tunnel to private Postgres
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      - name: Embed corpus
+        working-directory: server
+        env:
+          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+          VOYAGE_API_KEY: ${{ secrets.VOYAGE_API_KEY }}
+        run: |
+          for f in ../corpus/chunks/*.jsonl; do
+            go run ./cmd/corpus embed --replace "$f"
+          done
