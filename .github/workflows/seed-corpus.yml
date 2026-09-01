@@ -25,10 +25,10 @@ jobs:
           RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
         run: |
           railway whoami
-          railway link -p ye-ke -e production
+          railway link -p ye-ke -e production -s Postgres
           ssh-keygen -t ed25519 -N "" -f ~/.ssh/id_ed25519 -q
           railway ssh keys add -k ~/.ssh/id_ed25519.pub -n "gha-${{ github.run_id }}"
-          railway connect -s Postgres --tunnel-only --ssh -P 55432 &
+          railway connect Postgres --tunnel-only --ssh -P 55432 &
           for i in $(seq 1 30); do
             nc -z localhost 55432 && break
             sleep 1
@@ -49,4 +49,4 @@ jobs:
         if: always()
         env:
           RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
-        run: railway ssh keys remove -k ~/.ssh/id_ed25519.pub || true
+        run: railway ssh keys remove ~/.ssh/id_ed25519.pub || true
