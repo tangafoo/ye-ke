@@ -24,6 +24,7 @@ jobs:
         env:
           RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
         run: |
+          railway whoami
           railway link -p ye-ke -e production
           ssh-keygen -t ed25519 -N "" -f ~/.ssh/id_ed25519 -q
           railway connect Postgres --tunnel-only --ssh -P 55432 &
