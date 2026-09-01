@@ -2,6 +2,8 @@ module byakugan
 
 go 1.26
 
+toolchain go1.26.7
+
 require (
 	github.com/jackc/pgx/v5 v5.10.0
 	github.com/joho/godotenv v1.5.1
