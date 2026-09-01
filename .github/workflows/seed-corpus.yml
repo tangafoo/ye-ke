@@ -23,11 +23,13 @@ jobs:
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: |
+          ssh-keygen -t ed25519 -N "" -f ~/.ssh/id_ed25519 -q
           railway connect Postgres --tunnel-only --ssh -P 55432 &
           for i in $(seq 1 30); do
             nc -z localhost 55432 && break
             sleep 1
           done
+          nc -z localhost 55432 || { echo "tunnel never opened"; exit 1; }
 
       - name: Embed corpus
         working-directory: server
