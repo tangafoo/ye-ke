@@ -49,4 +49,6 @@ jobs:
         if: always()
         env:
           RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
-        run: railway ssh keys remove ~/.ssh/id_ed25519.pub || true
+        run: |
+          FP=$(ssh-keygen -lf ~/.ssh/id_ed25519.pub | awk '{print $2}')
+          railway ssh keys remove "$FP" || true

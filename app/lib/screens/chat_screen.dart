@@ -44,13 +44,27 @@ class _ChatScreenState extends State<ChatScreen> {
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 45),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.end,
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Image.asset(
-                      'assets/images/chat-descriptor-pic.webp',
-                      width: 150,
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        Transform.rotate(
+                          angle: -0.06,
+                          child: Image.asset(
+                            'assets/images/yeke-brain.webp',
+                            width: 120,
+                          ),
+                        ),
+                        Transform.rotate(
+                          angle: 0.16,
+                          child: Image.asset(
+                            'assets/images/chat-descriptor-pic.webp',
+                            width: 80,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 16),
                     AskBar(hint: _placeholder, onSubmit: _ask),
                   ],
                 ),

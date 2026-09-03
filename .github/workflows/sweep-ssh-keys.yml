@@ -1,0 +1,24 @@
+name: sweep-ssh-keys
+
+on:
+  schedule:
+    - cron: '17 3 * * 0'
+  workflow_dispatch:
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Railway CLI
+        run: npm i -g @railway/cli
+
+      - name: Remove orphaned gha-* SSH keys
+        env:
+          RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
+        run: |
+          railway ssh keys list \
+           | awk '/^  gha-/{getline; if ($1=="Fingerprint:") print $2}' \
+           | while read -r fp; do
+               echo "removing $fp"
+               railway ssh keys remove "$fp"
+             done
