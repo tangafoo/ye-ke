@@ -3,11 +3,15 @@ package news
 import (
 	"context"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"html"
+	"io"
+	"math/rand/v2"
 	"net/http"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -69,6 +73,19 @@ type rssSource struct {
 
 var tagRE = regexp.MustCompile(`<[^>]*>`)
 
+var (
+	ErrEmptyQuery  = errors.New("[news] empty query")
+	ErrUnavailable = errors.New("[news] upstream unavailable")
+	ErrTooLarge    = errors.New("[news] response too large")
+)
+
+const (
+	maxBodyBytes = 4 << 20
+
+	maxAttempts = 3
+	baseBackoff = 500 * time.Millisecond
+)
+
 func stripHTML(s string) string {
 	return strings.Join(strings.Fields(html.UnescapeString(tagRE.ReplaceAllString(s, " "))), " ")
 }
@@ -112,31 +129,115 @@ func parsePublished(raw string) time.Time {
 	return time.Time{}
 }
 
+func (c *Client) attempt(ctx context.Context, endpoint string) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return nil, fmt.Errorf("[news] build request: %w", err)
+	}
+	req.Header.Set("User-Agent", browserUA)
+	req.Header.Set("Accept", "application/rss+xml, application/xml;q=0.9, */*;q=0.8")
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("[news] google news fetch: %w", err)
+	}
+	defer func() {
+		io.Copy(io.Discard, io.LimitReader(resp.Body, maxBodyBytes))
+		resp.Body.Close()
+	}()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, &httpError{
+			status:     resp.StatusCode,
+			retryAfter: parseRetryAfter(resp.Header.Get("Retry-After")),
+		}
+	}
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBodyBytes+1))
+	if err != nil {
+		return nil, fmt.Errorf("[news] read body: %w", err)
+	}
+	if len(body) > maxBodyBytes {
+		return nil, ErrTooLarge
+	}
+	return body, nil
+}
+
+func (c *Client) fetch(ctx context.Context, endpoint string) ([]byte, error) {
+	var lastErr error
+
+	for attempt := range maxAttempts {
+		if attempt > 0 {
+			var he *httpError
+			var retryAfter time.Duration
+			if errors.As(lastErr, &he) {
+				retryAfter = he.retryAfter
+			}
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(backoffDelay(attempt-1, retryAfter)):
+			}
+		}
+
+		body, err := c.attempt(ctx, endpoint)
+		if err == nil {
+			return body, nil
+		}
+		lastErr = err
+
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		if !retryable(err) {
+			return nil, err
+		}
+	}
+	return nil, fmt.Errorf("[news] gave up after %d attempts: %w", maxAttempts, lastErr)
+}
+
+func backoffDelay(attempt int, retryAfter time.Duration) time.Duration {
+	if retryAfter > 0 {
+		return retryAfter
+	}
+	d := baseBackoff << attempt
+	return d + rand.N(d/2)
+}
+
+func parseRetryAfter(raw string) time.Duration {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return 0
+	}
+	if secs, err := strconv.Atoi(raw); err == nil && secs > 0 {
+		return time.Duration(secs) * time.Second
+	}
+	if t, err := http.ParseTime(raw); err == nil {
+		if d := time.Until(t); d > 0 {
+			return d
+		}
+	}
+	return 0
+}
+
 func (c *Client) Search(ctx context.Context, query string) ([]Article, error) {
+	if strings.TrimSpace(query) == "" {
+		return nil, ErrEmptyQuery
+	}
+
 	params := url.Values{}
 	params.Set("q", query)
 	params.Set("hl", "ms-MY")
 	params.Set("gl", "MY")
 	params.Set("ceid", "MY:ms")
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, searchURL+"?"+params.Encode(), nil)
+	body, err := c.fetch(ctx, searchURL+"?"+params.Encode())
 	if err != nil {
-		return nil, fmt.Errorf("[news] build request: %w", err)
-	}
-	req.Header.Set("User-Agent", browserUA)
-
-	resp, err := c.http.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("[news] google news fetch: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("[news] google news returned: %d", resp.StatusCode)
+		return nil, err
 	}
 
 	var feed rssFeed
-	if err := xml.NewDecoder(resp.Body).Decode(&feed); err != nil {
+	if err := xml.Unmarshal(body, &feed); err != nil {
 		return nil, fmt.Errorf("[news] parse rss: %w", err)
 	}
 
@@ -145,4 +246,26 @@ func (c *Client) Search(ctx context.Context, query string) ([]Article, error) {
 		articles = append(articles, it.toArticle())
 	}
 	return articles, nil
+}
+
+type httpError struct {
+	status     int
+	retryAfter time.Duration
+}
+
+func (e *httpError) Error() string {
+	return fmt.Sprintf("[news] google news returned: %d", e.status)
+}
+
+func (e *httpError) Unwrap() error { return ErrUnavailable }
+func (e *httpError) retryable() bool {
+	return e.status == http.StatusTooManyRequests || e.status >= 500
+}
+
+func retryable(err error) bool {
+	var he *httpError
+	if errors.As(err, &he) {
+		return he.retryable()
+	}
+	return true
 }
