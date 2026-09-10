@@ -19,14 +19,43 @@ import (
 const (
 	searchURL = "https://news.google.com/rss/search"
 	browserUA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
+
+	maxBodyBytes = 4 << 20
+
+	maxAttempts = 3
+	baseBackoff = 500 * time.Millisecond
+
+	maxRetryWait = 20 * time.Second
 )
 
-type Client struct {
-	http *http.Client
+type MjolnirSettings struct {
+	BaseURL string
+	HTTP    *http.Client
+	Backoff time.Duration
 }
 
-func New() *Client {
-	return &Client{http: &http.Client{Timeout: 15 * time.Second}}
+func (m MjolnirSettings) withDefaults() MjolnirSettings {
+	if m.BaseURL == "" {
+		m.BaseURL = searchURL
+	}
+	if m.HTTP == nil {
+		m.HTTP = &http.Client{Timeout: 15 * time.Second}
+	}
+	if m.Backoff <= 0 {
+		m.Backoff = baseBackoff
+	}
+	return m
+}
+
+type Client struct {
+	http    *http.Client
+	baseURL string
+	backoff time.Duration
+}
+
+func New(m MjolnirSettings) *Client {
+	m = m.withDefaults()
+	return &Client{http: m.HTTP, baseURL: m.BaseURL, backoff: m.Backoff}
 }
 
 type Article struct {
@@ -73,17 +102,12 @@ type rssSource struct {
 
 var tagRE = regexp.MustCompile(`<[^>]*>`)
 
+var titleSeps = []string{" - ", " | ", " - ", " - "}
+
 var (
 	ErrEmptyQuery  = errors.New("[news] empty query")
 	ErrUnavailable = errors.New("[news] upstream unavailable")
 	ErrTooLarge    = errors.New("[news] response too large")
-)
-
-const (
-	maxBodyBytes = 4 << 20
-
-	maxAttempts = 3
-	baseBackoff = 500 * time.Millisecond
 )
 
 func stripHTML(s string) string {
@@ -95,19 +119,29 @@ func cleanTitle(title, outlet string) string {
 	if outlet == "" {
 		return title
 	}
-	if trimmed, ok := strings.CutSuffix(title, " - "+outlet); ok {
-		return strings.TrimSpace(trimmed)
+
+	for {
+		trimmed := title
+		for _, sep := range titleSeps {
+			if cut, ok := strings.CutSuffix(trimmed, sep+outlet); ok {
+				trimmed = strings.TrimSpace(cut)
+				break
+			}
+		}
+		if trimmed == title {
+			return title
+		}
+		title = trimmed
 	}
-	return title
 }
 
-func cleanSnippet(desc, rawTitle, outlet string) string {
+func cleanSnippet(desc, title, outlet string) string {
 	snippet := stripHTML(desc)
 	if snippet == "" {
 		return ""
 	}
-	filler := strings.TrimSpace(strings.TrimSuffix(snippet, outlet))
-	if strings.EqualFold(filler, strings.TrimSpace(rawTitle)) {
+	filler := cleanTitle(strings.TrimSuffix(snippet, outlet), outlet)
+	if strings.EqualFold(filler, title) {
 		return ""
 	}
 	return snippet
@@ -118,14 +152,34 @@ var pubDateLayouts = []string{
 	time.RFC1123,
 	time.RFC822Z,
 	time.RFC822,
+	time.RFC3339,
 }
 
-func parsePublished(raw string) time.Time {
-	for _, layout := range pubDateLayouts {
-		if t, err := time.Parse(layout, strings.TrimSpace(raw)); err == nil {
-			return t.UTC()
-		}
+func isUTCName(name string) bool {
+	switch name {
+	case "UTC", "GMT", "UT", "Z", "":
+		return true
 	}
+	return false
+}
+
+var zoneAliases = strings.NewReplacer(" MYT", " +0800")
+
+func parsePublished(raw string) time.Time {
+	raw = zoneAliases.Replace(strings.TrimSpace(raw))
+
+	for _, layout := range pubDateLayouts {
+		t, err := time.Parse(layout, raw)
+		if err != nil {
+			continue
+		}
+
+		if name, offset := t.Zone(); offset == 0 && !isUTCName(name) {
+			return time.Time{}
+		}
+		return t.UTC()
+	}
+
 	return time.Time{}
 }
 
@@ -168,15 +222,21 @@ func (c *Client) fetch(ctx context.Context, endpoint string) ([]byte, error) {
 
 	for attempt := range maxAttempts {
 		if attempt > 0 {
-			var he *httpError
+
 			var retryAfter time.Duration
-			if errors.As(lastErr, &he) {
+			if he, ok := errors.AsType[*httpError](lastErr); ok {
 				retryAfter = he.retryAfter
 			}
+
+			wait := c.backoffDelay(attempt-1, retryAfter)
+			if wait > maxRetryWait {
+				return nil, lastErr
+			}
+
 			select {
 			case <-ctx.Done():
 				return nil, ctx.Err()
-			case <-time.After(backoffDelay(attempt-1, retryAfter)):
+			case <-time.After(wait):
 			}
 		}
 
@@ -196,12 +256,15 @@ func (c *Client) fetch(ctx context.Context, endpoint string) ([]byte, error) {
 	return nil, fmt.Errorf("[news] gave up after %d attempts: %w", maxAttempts, lastErr)
 }
 
-func backoffDelay(attempt int, retryAfter time.Duration) time.Duration {
+func (c *Client) backoffDelay(attempt int, retryAfter time.Duration) time.Duration {
 	if retryAfter > 0 {
 		return retryAfter
 	}
-	d := baseBackoff << attempt
-	return d + rand.N(d/2)
+	d := c.backoff << attempt
+	if j := d / 2; j > 0 {
+		d += rand.N(j)
+	}
+	return d
 }
 
 func parseRetryAfter(raw string) time.Duration {
@@ -231,7 +294,7 @@ func (c *Client) Search(ctx context.Context, query string) ([]Article, error) {
 	params.Set("gl", "MY")
 	params.Set("ceid", "MY:ms")
 
-	body, err := c.fetch(ctx, searchURL+"?"+params.Encode())
+	body, err := c.fetch(ctx, c.baseURL+"?"+params.Encode())
 	if err != nil {
 		return nil, err
 	}
@@ -263,8 +326,11 @@ func (e *httpError) retryable() bool {
 }
 
 func retryable(err error) bool {
-	var he *httpError
-	if errors.As(err, &he) {
+	if errors.Is(err, ErrTooLarge) {
+		return false
+	}
+
+	if he, ok := errors.AsType[*httpError](err); ok {
 		return he.retryable()
 	}
 	return true
