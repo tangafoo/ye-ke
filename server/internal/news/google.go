@@ -102,7 +102,7 @@ type rssSource struct {
 
 var tagRE = regexp.MustCompile(`<[^>]*>`)
 
-var titleSeps = []string{" - ", " | ", " - ", " - "}
+var titleSeps = []string{" - ", " | ", " \u2013 ", " \u2014 "}
 
 var (
 	ErrEmptyQuery  = errors.New("[news] empty query")
