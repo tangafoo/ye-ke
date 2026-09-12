@@ -2,6 +2,7 @@ package news
 
 import (
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -12,6 +13,34 @@ const (
 	seksyenStatute
 	seksyenPlace
 )
+
+const maximumLimForSeksyenPlace = 60
+
+func sectionDigits(s string) string {
+	if m := seksyenRE.FindStringSubmatch(s); m != nil {
+		return m[1]
+	}
+	return ""
+}
+
+func isSeksyenPlace(text string, loc []int) bool {
+	switch classifySeksyen(text, loc) {
+	case seksyenPlace:
+		return true
+	case seksyenStatute:
+		return false
+	}
+
+	n, err := strconv.Atoi(sectionDigits(text[loc[0]:loc[1]]))
+	return err == nil && n <= maximumLimForSeksyenPlace
+}
+
+func msGate(head, text string, loc []int) bool {
+	if head != "seksyen" {
+		return true
+	}
+	return isSeksyenPlace(text, loc)
+}
 
 var statuteCues = []string{
 	"kanun keseksaan",
