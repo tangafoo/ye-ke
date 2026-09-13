@@ -18,7 +18,6 @@ import (
 
 const (
 	searchURL = "https://news.google.com/rss/search"
-	browserUA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
 
 	maxBodyBytes = 4 << 20
 
@@ -26,17 +25,23 @@ const (
 	baseBackoff = 500 * time.Millisecond
 
 	maxRetryWait = 20 * time.Second
+
+	defaultUserAgent = "YeKe/0.1 (+https://github.com/tangafoo/ye-ke)"
 )
 
 type MjolnirSettings struct {
-	BaseURL string
-	HTTP    *http.Client
-	Backoff time.Duration
+	BaseURL   string
+	UserAgent string
+	HTTP      *http.Client
+	Backoff   time.Duration
 }
 
 func (m MjolnirSettings) withDefaults() MjolnirSettings {
 	if m.BaseURL == "" {
 		m.BaseURL = searchURL
+	}
+	if m.UserAgent == "" {
+		m.UserAgent = defaultUserAgent
 	}
 	if m.HTTP == nil {
 		m.HTTP = &http.Client{Timeout: 15 * time.Second}
@@ -48,14 +53,20 @@ func (m MjolnirSettings) withDefaults() MjolnirSettings {
 }
 
 type Client struct {
-	http    *http.Client
-	baseURL string
-	backoff time.Duration
+	http      *http.Client
+	baseURL   string
+	userAgent string
+	backoff   time.Duration
 }
 
 func New(m MjolnirSettings) *Client {
 	m = m.withDefaults()
-	return &Client{http: m.HTTP, baseURL: m.BaseURL, backoff: m.Backoff}
+	return &Client{
+		http:      m.HTTP,
+		baseURL:   m.BaseURL,
+		userAgent: m.UserAgent,
+		backoff:   m.Backoff,
+	}
 }
 
 type Article struct {
@@ -188,7 +199,7 @@ func (c *Client) attempt(ctx context.Context, endpoint string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("[news] build request: %w", err)
 	}
-	req.Header.Set("User-Agent", browserUA)
+	req.Header.Set("User-Agent", c.userAgent)
 	req.Header.Set("Accept", "application/rss+xml, application/xml;q=0.9, */*;q=0.8")
 
 	resp, err := c.http.Do(req)
