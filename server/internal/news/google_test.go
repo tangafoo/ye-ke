@@ -245,8 +245,40 @@ func TestSearchSendsExpectedRequest(t *testing.T) {
 			t.Errorf("query param %q = %q, want %q", key, q.Get(key), want)
 		}
 	}
-	if ua := got.Header.Get("User-Agent"); ua != browserUA {
-		t.Errorf("User-Agent = %q, want %q", ua, browserUA)
+	if ua := got.Header.Get("User-Agent"); ua != defaultUserAgent {
+		t.Errorf("User-Agent = %q, want %q", ua, defaultUserAgent)
+	}
+}
+
+// The UA must identify us and carry a contact URL — Nominatim's usage policy
+// requires it, and an honest identity is the lane the whole package takes.
+func TestDefaultUserAgentIsHonest(t *testing.T) {
+	if strings.Contains(defaultUserAgent, "Mozilla") || strings.Contains(defaultUserAgent, "Chrome") {
+		t.Errorf("defaultUserAgent looks like a browser spoof: %q", defaultUserAgent)
+	}
+	if !strings.Contains(defaultUserAgent, "http") {
+		t.Errorf("defaultUserAgent carries no contact URL: %q", defaultUserAgent)
+	}
+}
+
+// A caller must be able to override the UA per lane without touching the
+// package default.
+func TestUserAgentOverridePerLane(t *testing.T) {
+	const want = "YeKe-geocoder/0.1 (+https://example.test)"
+
+	var got string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = r.Header.Get("User-Agent")
+		w.Write([]byte(feedXML()))
+	}))
+	defer srv.Close()
+
+	c := New(MjolnirSettings{BaseURL: srv.URL, UserAgent: want, Backoff: time.Millisecond})
+	if _, err := c.Search(context.Background(), "polis"); err != nil {
+		t.Fatalf("Search: %v", err)
+	}
+	if got != want {
+		t.Errorf("User-Agent = %q, want %q", got, want)
 	}
 }
 

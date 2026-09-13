@@ -13,7 +13,7 @@ const (
 type Locale struct {
 	Code string
 
-	Heads   map[string]int16
+	Heads   map[string]Precision
 	HeadPos headPos
 
 	Preps     map[string]bool
@@ -28,7 +28,7 @@ type Locale struct {
 
 func (l Locale) compile() *Locale {
 	l.maxHeadTokens = 1
-	heads := make(map[string]int16, len(l.Heads))
+	heads := make(map[string]Precision, len(l.Heads))
 
 	for h, prec := range l.Heads {
 		f := strings.Fields(h)
@@ -60,7 +60,7 @@ var localeMS = Locale{
 	Code:    "ms-MY",
 	HeadPos: headInitial,
 	Gate:    msGate,
-	Heads: map[string]int16{
+	Heads: map[string]Precision{
 		"taman": PrecStreet, "kampung": PrecStreet, "kg": PrecStreet,
 		"jalan": PrecStreet, "lorong": PrecStreet, "persiaran": PrecStreet,
 		"seksyen": PrecStreet,
@@ -97,7 +97,7 @@ func LocaleFor(lat, lng float64) *Locale {
 	return localeAny
 }
 
-func (l *Locale) headAt(s string, toks []token, i int) (prec int16, n int, ok bool) {
+func (l *Locale) headAt(s string, toks []token, i int) (prec Precision, n int, ok bool) {
 	for span := min(l.maxHeadTokens, len(toks)-i); span >= 1; span-- {
 		word := s[toks[i].start:toks[i+span-1].end]
 		if span > 1 {
