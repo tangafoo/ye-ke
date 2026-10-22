@@ -11,3 +11,5 @@ server/.env
 
 # code editor config
 .vscode
+.wrangler/
+

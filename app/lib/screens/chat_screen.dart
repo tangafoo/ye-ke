@@ -136,7 +136,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                     ),
                                   ],
                                   borderRadius: BorderRadius.circular(12),
-                                  color: YeKe.detained,
+                                  color: YeKe.rotom,
                                 ),
                                 child: Text(
                                   "Voice Mode",

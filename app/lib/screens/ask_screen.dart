@@ -75,7 +75,7 @@ class _AskScreenState extends State<AskScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: YeKe.bg0,
+      backgroundColor: YeKe.white,
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -168,7 +168,7 @@ class _AskScreenState extends State<AskScreen> {
                                 : YeKe.stand.withAlpha(50),
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
-                              color: YeKe.detained,
+                              color: YeKe.rotom,
                               width: 1.8,
                             ),
                           ),
@@ -203,9 +203,9 @@ class _ErrorBanner extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: YeKe.detained.withValues(alpha: 0.12),
+        color: YeKe.rotom.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: YeKe.detained.withValues(alpha: 0.4)),
+        border: Border.all(color: YeKe.rotom.withValues(alpha: 0.4)),
       ),
       child: Text(
         message,
@@ -246,7 +246,7 @@ class _Bubble extends StatelessWidget {
                           blurRadius: 3,
                         ),
                       ],
-                      color: YeKe.detained,
+                      color: YeKe.rotom,
                       border: null,
                       borderRadius: BorderRadius.only(
                         topLeft: Radius.circular(10),
@@ -257,7 +257,7 @@ class _Bubble extends StatelessWidget {
                     ),
                     child: Text(
                       text,
-                      style: const TextStyle(color: YeKe.bg0, fontSize: 15),
+                      style: const TextStyle(color: YeKe.white, fontSize: 15),
                     ),
                   )
                 : Container(
@@ -302,7 +302,7 @@ class _Bubble extends StatelessWidget {
                           fontStyle: FontStyle.italic,
                         ),
                         h2: const TextStyle(
-                          color: YeKe.detained,
+                          color: YeKe.rotom,
                           fontSize: 19,
                           letterSpacing: -0.3,
                         ),

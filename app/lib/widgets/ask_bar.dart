@@ -48,7 +48,7 @@ class _AskBarState extends State<AskBar> {
                   textInputAction: TextInputAction.search,
                   onSubmitted: (_) => _submit(),
                   style: const TextStyle(color: YeKe.night, fontSize: 15),
-                  cursorColor: YeKe.detained,
+                  cursorColor: YeKe.rotom,
                   decoration: InputDecoration(
                     suffixIcon: ValueListenableBuilder(
                       valueListenable: _controller,
@@ -73,7 +73,7 @@ class _AskBarState extends State<AskBar> {
                       borderSide: BorderSide.none,
                     ),
                     filled: true,
-                    fillColor: YeKe.bg0,
+                    fillColor: YeKe.white,
                     hintText: widget.hint,
                     hintStyle: const TextStyle(
                       color: YeKe.leather,
@@ -88,10 +88,10 @@ class _AskBarState extends State<AskBar> {
                 child: Container(
                   height: 50,
                   width: 60,
-                  decoration: BoxDecoration(color: YeKe.detained),
+                  decoration: BoxDecoration(color: YeKe.rotom),
                   alignment: Alignment.center,
                   child: widget.useIcon!
-                      ? Icon(Icons.message, color: YeKe.bg0)
+                      ? Icon(Icons.message, color: YeKe.white)
                       : const Text(
                           "Ask",
                           style: TextStyle(

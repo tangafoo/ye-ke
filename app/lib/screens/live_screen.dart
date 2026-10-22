@@ -48,7 +48,7 @@ class _LiveScreenState extends State<LiveScreen> {
             CameraPreview(controller)
           else
             const Center(
-              child: CircularProgressIndicator(color: YeKe.detained),
+              child: CircularProgressIndicator(color: YeKe.rotom),
             ),
           SafeArea(
             child: Column(
@@ -71,7 +71,7 @@ class _LiveScreenState extends State<LiveScreen> {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: YeKe.detained,
+                          color: YeKe.rotom,
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: const Text(
@@ -92,7 +92,7 @@ class _LiveScreenState extends State<LiveScreen> {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(color: YeKe.glass, width: 4),
-                      color: _live ? YeKe.detained : YeKe.road,
+                      color: _live ? YeKe.rotom : YeKe.road,
                     ),
                   ),
                 ),

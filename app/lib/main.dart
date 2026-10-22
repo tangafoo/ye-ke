@@ -208,13 +208,13 @@ class _AppShellState extends State<AppShell> {
         ? await showDialog<String>(
             context: context,
             builder: (_) => const Dialog(
-              backgroundColor: YeKe.bg0,
+              backgroundColor: YeKe.white,
               child: _CameraActions(),
             ),
           )
         : await showModalBottomSheet<String>(
             context: context,
-            backgroundColor: YeKe.bg0,
+            backgroundColor: YeKe.white,
             builder: (_) => const _CameraActions(),
           );
 
@@ -277,7 +277,7 @@ class _CameraActions extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             ListTile(
-              tileColor: YeKe.detained,
+              tileColor: YeKe.rotom,
               title: Text(
                 'Start Livestream',
                 style: TextStyle(color: Colors.white, fontFamily: 'Faculty'),
@@ -301,7 +301,7 @@ class ByakuganApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.dark,
-        scaffoldBackgroundColor: YeKe.bg0,
+        scaffoldBackgroundColor: YeKe.white,
         fontFamily: 'Chelsea',
         useMaterial3: true,
       ),
@@ -328,7 +328,7 @@ const _categories = <Category>[
     Icons.directions_car_filled,
     YeKe.road,
   ),
-  Category('Detained?', 'Ditahan?', Icons.pan_tool, YeKe.detained),
+  Category('Detained?', 'Ditahan?', Icons.pan_tool, YeKe.rotom),
   Category('At my door', 'Di pintu rumah', Icons.door_front_door, YeKe.door),
   Category(
     'Where I stand',

@@ -28,7 +28,7 @@ class BottomBar extends StatelessWidget {
       height: _barHeight,
       decoration: const BoxDecoration(
         color: YeKe.bg1,
-        border: Border(top: BorderSide(color: YeKe.detained, width: 4)),
+        border: Border(top: BorderSide(color: YeKe.rotom, width: 4)),
       ),
       child: Row(
         children: [
@@ -97,7 +97,7 @@ class CameraButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: YeKe.detained,
+      color: YeKe.rotom,
       shape: const CircleBorder(),
       elevation: 6,
       shadowColor: Color(0x73000000),

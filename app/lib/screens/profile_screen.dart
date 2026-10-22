@@ -26,7 +26,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 blurStyle: BlurStyle.inner,
               ),
             ],
-            color: YeKe.detained,
+            color: YeKe.rotom,
             borderRadius: BorderRadius.circular(12),
           ),
           child: Column(mainAxisSize: MainAxisSize.min),

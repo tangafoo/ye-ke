@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 /// Cool, dark, blue. One hot accent (protest red) for tension.
 /// Chrome is loud; the law (later) will be calm. This is the loud surface.
 class YeKe {
-  static const bg0 = Color(0xFFF5F5F5); // near-black navy
+  static const white = Color(0xFFF5F5F5); // near-black navy
   static const bg1 = Color(0xFF262c34); // deep blue
   static const glow = Color(0xFF2E6BFF); // electric blue (search glow)
   static const glass = Color(0x14FFFFFF); // 8% white — glass fill
@@ -14,7 +14,7 @@ class YeKe {
 
   // Per-category accents — graffiti energy, each its own colour.
   static const road = Color(0xFF35C4FF); // cyan
-  static const detained = Color(0xFFFF5722); // protest red
+  static const rotom = Color(0xFFFF5722); // protest red
   static const door = Color(0xFFB983FF); // violet
   static const stand = Color(0xFFFFC24B); // amber
   static const paint = Color(0xFF76ABAE);

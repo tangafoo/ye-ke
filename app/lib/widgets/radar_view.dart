@@ -43,7 +43,7 @@ class RadarPainter extends CustomPainter {
       line,
     );
 
-    canvas.drawCircle(center, 8, Paint()..color = YeKe.detained);
+    canvas.drawCircle(center, 8, Paint()..color = YeKe.rotom);
 
     final n = TextPainter(
       text: const TextSpan(
