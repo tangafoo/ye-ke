@@ -164,6 +164,42 @@ class _PrimerFlowState extends State<PrimerFlow> {
             onPageChanged: (i) => setState(() => _page = i),
             children: [for (final b in widget.pageBuilders) b(_next)],
           ),
+
+          Positioned(
+            top: 0,
+            right: 0,
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: IgnorePointer(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: YeKe.cement.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 200),
+                      child: Text(
+                        '${_page + 1}/${widget.pageBuilders.length}',
+                        key: ValueKey(_page),
+                        style: const TextStyle(
+                          color: YeKe.text,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 2,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+
           Positioned(
             left: 0,
             right: 0,
