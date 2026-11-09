@@ -36,7 +36,8 @@ class _StartupGateState extends State<StartupGate> {
   _Stage _stage = _Stage.deciding;
 
   var _pages = <Widget Function(VoidCallback)>[];
-  final _shownKeys = <String>[];
+
+  static const _kOnboardingDone = 'onboarding_done';
 
   @override
   void initState() {
@@ -45,62 +46,58 @@ class _StartupGateState extends State<StartupGate> {
     _decide();
   }
 
-  final _kLocationPrimerDone = "location_primer_done";
-  final _kNotifPrimerDone = "notification_primer_done";
-  final _kYekePrimerDone = "yeke_primer_done";
-
-  Future<bool> _needsLocationPrimer(SharedPreferences prefs) async {
-    if (prefs.getBool(_kLocationPrimerDone) ?? false) return false;
+  Future<bool> _locationGranted() async {
     try {
-      return await Geolocator.checkPermission() == LocationPermission.denied;
+      final p = await Geolocator.checkPermission();
+      return p == LocationPermission.whileInUse ||
+          p == LocationPermission.always;
     } catch (_) {
       return false;
     }
   }
 
-  Future<bool> _needsNotificationPrimer(SharedPreferences prefs) async {
-    if (prefs.getBool(_kNotifPrimerDone) ?? false) return false;
+  Future<bool> _notificationsGranted() async {
     try {
-      return await (Permission.notification.status).isDenied;
+      final s = await Permission.notification.status;
+      return s.isGranted || s.isProvisional || s.isLimited;
     } catch (_) {
       return false;
     }
   }
-
-  bool _needsYekePrimer(SharedPreferences prefs) =>
-      !(prefs.getBool(_kYekePrimerDone) ?? false);
 
   Future<void> _decide() async {
     final prefs = await SharedPreferences.getInstance();
-    final pages = <Widget Function(VoidCallback)>[];
 
-    if (await _needsLocationPrimer(prefs)) {
-      _shownKeys.add(_kLocationPrimerDone);
-      pages.add((next) => LocationPrimerScreen(onFinished: next));
-    }
-    if (await _needsNotificationPrimer(prefs)) {
-      _shownKeys.add(_kNotifPrimerDone);
-      pages.add((next) => NotificationPrimerScreen(onFinished: next));
+    if (prefs.getBool(_kOnboardingDone) ?? false) {
+      if (!mounted) return;
+      setState(() => _stage = _Stage.ready);
+      return;
     }
 
-    if (_needsYekePrimer(prefs)) {
-      _shownKeys.add(_kYekePrimerDone);
-      pages.add((next) => YekePrimerScreen(onFinished: next));
-    }
+    final locationGranted = await _locationGranted();
+    final notificationsGranted = await _notificationsGranted();
 
     if (!mounted) return;
     setState(() {
-      _pages = pages;
-      _stage = pages.isEmpty ? _Stage.ready : _Stage.primers;
+      _pages = [
+        (next) => LocationPrimerScreen(
+          onFinished: next,
+          permissionGiven: locationGranted,
+        ),
+        (next) => NotificationPrimerScreen(
+          onFinished: next,
+          permissionGiven: notificationsGranted,
+        ),
+        (next) => YekePrimerScreen(onFinished: next),
+      ];
+      _stage = _Stage.primers;
     });
   }
 
   Future<void> _finishFlow() async {
     final prefs = await SharedPreferences.getInstance();
 
-    for (final k in _shownKeys) {
-      await prefs.setBool(k, true);
-    }
+    await prefs.setBool(_kOnboardingDone, true);
 
     if (!mounted) return;
     setState(() => _stage = _Stage.ready);
@@ -134,8 +131,18 @@ class PrimerFlow extends StatefulWidget {
 }
 
 class _PrimerFlowState extends State<PrimerFlow> {
+  static const _wideBreakpoint = 840.0;
   final _controller = PageController();
   var _page = 0;
+
+  void _prev() {
+    if (_page == 0) return;
+
+    _controller.previousPage(
+      duration: const Duration(milliseconds: 420),
+      curve: Curves.easeOutQuart,
+    );
+  }
 
   void _next() {
     if (_page >= widget.pageBuilders.length - 1) {
@@ -143,8 +150,8 @@ class _PrimerFlowState extends State<PrimerFlow> {
       return;
     }
     _controller.nextPage(
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOutCubic,
+      duration: const Duration(milliseconds: 420),
+      curve: Curves.easeOutQuart,
     );
   }
 
@@ -156,72 +163,163 @@ class _PrimerFlowState extends State<PrimerFlow> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Stack(
-        children: [
-          PageView(
-            controller: _controller,
-            onPageChanged: (i) => setState(() => _page = i),
-            children: [for (final b in widget.pageBuilders) b(_next)],
-          ),
+    final desktop =
+        MediaQuery.sizeOf(context).width - 48 >=
+        _wideBreakpoint; // 48 = padding on both 24px sides
+    final isFirst = _page == 0;
+    final isLast = _page == widget.pageBuilders.length - 1;
 
-          Positioned(
-            top: 0,
-            right: 0,
-            child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: IgnorePointer(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: YeKe.cement.withValues(alpha: 0.3),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 200),
-                      child: Text(
-                        '${_page + 1}/${widget.pageBuilders.length}',
-                        key: ValueKey(_page),
-                        style: const TextStyle(
-                          color: YeKe.text,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 2,
+    return CallbackShortcuts(
+      bindings: <ShortcutActivator, VoidCallback>{
+        const SingleActivator(
+          LogicalKeyboardKey.arrowLeft,
+          includeRepeats: false,
+        ): _prev,
+        const SingleActivator(
+          LogicalKeyboardKey.arrowRight,
+          includeRepeats: false,
+        ): () {
+          if (!isLast) _next();
+        },
+      },
+      child: Focus(
+        autofocus: true,
+        child: Scaffold(
+          body: Stack(
+            children: [
+              PageView(
+                controller: _controller,
+                onPageChanged: (i) => setState(() => _page = i),
+                children: [
+                  for (var i = 0; i < widget.pageBuilders.length; i++)
+                    widget.pageBuilders[i](() {
+                      if (i == _page) _next();
+                    }),
+                ],
+              ),
+
+              Positioned(
+                top: 0,
+                right: 0,
+                child: SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: IgnorePointer(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: YeKe.cement.withValues(alpha: 0.3),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 200),
+                          child: Text(
+                            '${_page + 1}/${widget.pageBuilders.length}',
+                            key: ValueKey(_page),
+                            style: const TextStyle(
+                              color: YeKe.text,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 2,
+                            ),
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
-          ),
 
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 18,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                for (var i = 0; i < widget.pageBuilders.length; i++)
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                    height: 8,
-                    width: i == _page ? 22 : 8,
-                    decoration: BoxDecoration(
-                      color: i == _page ? YeKe.stand : YeKe.cement,
-                      borderRadius: BorderRadius.circular(4),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 18,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    for (var i = 0; i < widget.pageBuilders.length; i++)
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        margin: const EdgeInsets.symmetric(horizontal: 4),
+                        height: 8,
+                        width: i == _page ? 22 : 8,
+                        decoration: BoxDecoration(
+                          color: i == _page ? YeKe.stand : YeKe.cement,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+
+              if (desktop) ...[
+                Positioned(
+                  left: 24,
+                  top: 0,
+                  bottom: 0,
+                  child: Center(
+                    child: _PageArrow(
+                      icon: Icons.arrow_back_rounded,
+                      tooltip: 'Previous',
+                      visible: !isFirst,
+                      onPressed: _prev,
                     ),
                   ),
+                ),
+                Positioned(
+                  right: 24,
+                  top: 0,
+                  bottom: 0,
+                  child: Center(
+                    child: _PageArrow(
+                      icon: Icons.arrow_forward_rounded,
+                      tooltip: 'Next',
+                      visible: !isLast,
+                      onPressed: _next,
+                    ),
+                  ),
+                ),
               ],
-            ),
+            ],
           ),
-        ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PageArrow extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final bool visible;
+  final VoidCallback onPressed;
+
+  const _PageArrow({
+    required this.icon,
+    required this.tooltip,
+    required this.visible,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      ignoring: !visible,
+      child: AnimatedOpacity(
+        opacity: visible ? 1 : 0,
+        duration: const Duration(milliseconds: 200),
+        child: IconButton.filled(
+          onPressed: visible ? onPressed : null,
+          tooltip: tooltip,
+          icon: Icon(icon),
+          style: IconButton.styleFrom(
+            backgroundColor: YeKe.cement.withValues(alpha: 0.3),
+            foregroundColor: YeKe.text,
+          ),
+        ),
       ),
     );
   }
@@ -337,9 +435,39 @@ class ByakuganApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.dark,
+        filledButtonTheme: FilledButtonThemeData(
+          style: FilledButton.styleFrom(
+            backgroundColor: YeKe.rotom,
+            foregroundColor: YeKe.white,
+            disabledBackgroundColor: YeKe.road.withValues(alpha: 0.5),
+            disabledForegroundColor: YeKe.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            textStyle: const TextStyle(
+              letterSpacing: 1.1,
+              fontFamily: 'Chelsea',
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
         scaffoldBackgroundColor: YeKe.white,
         fontFamily: 'Chelsea',
         useMaterial3: true,
+        tooltipTheme: TooltipThemeData(
+          verticalOffset: 30,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.7),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          textStyle: const TextStyle(
+            color: YeKe.text,
+            fontSize: 12,
+            fontFamily: 'Chelsea',
+          ),
+        ),
       ),
       home: const StartupGate(),
     );

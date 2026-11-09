@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:country_flags/country_flags.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 
 import '../models/ping.dart';
@@ -11,6 +13,18 @@ import '../api/ping_client.dart';
 import '../config.dart';
 import '../services/identity_service.dart';
 import '../theme/ye_ke.dart';
+
+enum _City {
+  kl('KL', 'MY', LatLng(3.1390, 101.6869)),
+  leipzig('Leipzig', 'DE', LatLng(51.3397, 12.3731)),
+  brisbane('Brisbane', 'AU', LatLng(-27.4698, 153.0251)),
+  bordeaux('Bordeaux', 'FR', LatLng(44.8378, -0.5792));
+
+  const _City(this.label, this.countryCode, this.center);
+  final String label;
+  final String countryCode;
+  final LatLng center;
+}
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -28,22 +42,91 @@ class _MapScreenState extends State<MapScreen> {
   List<Ping> _pings = [];
   Timer? _debounce;
 
+  static const _kLat = 'map_lat';
+  static const _kLng = 'map_lng';
+  var _city = _City.kl;
+
+  LatLng? _start;
+  final double _startZoom = 12;
+  var _dragRegistered = false;
+
+  Timer? _citySelectorTimer;
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _centerOnMe());
+    _resolveStart();
+  }
+
+  Future<Position?> _lastKnown() async {
+    try {
+      // I guess this is a separate thing from the 4 LatLng selector. preserve this.
+      return await Geolocator.getLastKnownPosition();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _resolveStart() async {
+    LatLng? center;
+
+    try {
+      final p = await Geolocator.checkPermission();
+      if (p == LocationPermission.whileInUse ||
+          p == LocationPermission.always) {
+        final pos =
+            await _lastKnown() ??
+            await Geolocator.getCurrentPosition(
+              locationSettings: const LocationSettings(
+                timeLimit: Duration(seconds: 5),
+              ),
+            );
+
+        center = LatLng(pos.latitude, pos.longitude);
+      }
+    } catch (_) {}
+
+    if (center == null) {
+      final prefs = await SharedPreferences.getInstance();
+      final lat = prefs.getDouble(_kLat);
+      final lng = prefs.getDouble(_kLng);
+      if (lat != null && lng != null) {
+        center = LatLng(lat, lng);
+      }
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _start = center ?? _City.kl.center;
+    });
   }
 
   Future<void> _centerOnMe() async {
     try {
       final pos = await Geolocator.getCurrentPosition();
-      _mapController.move(LatLng(pos.latitude, pos.longitude), 30);
+      _mapController.move(LatLng(pos.latitude, pos.longitude), 18);
     } catch (_) {}
   }
 
   void _onPositionChanged(MapCamera camera, bool hasGesture) {
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 400), _refresh);
+  }
+
+  void _onMapEvent(MapEvent event) {
+    if (event.source != MapEventSource.onDrag) return;
+
+    if (!_dragRegistered) setState(() => _dragRegistered = true);
+    _citySelectorTimer?.cancel();
+    _citySelectorTimer = Timer(const Duration(milliseconds: 900), () {
+      if (mounted) setState(() => _dragRegistered = false);
+    });
+  }
+
+  void _jumpTo(_City city) {
+    HapticFeedback.selectionClick();
+    setState(() => _city = city);
+    _mapController.move(city.center, _startZoom);
   }
 
   Future<void> _refresh() async {
@@ -79,7 +162,7 @@ class _MapScreenState extends State<MapScreen> {
       );
       if (p == null || !mounted) return;
 
-      _mapController.move(LatLng(p.lat, p.lng), 30);
+      _mapController.move(LatLng(p.lat, p.lng), 18);
       await _refresh();
     } on PingCooldownException catch (e) {
       if (mounted) {
@@ -96,6 +179,7 @@ class _MapScreenState extends State<MapScreen> {
   @override
   void dispose() {
     _debounce?.cancel();
+    _citySelectorTimer?.cancel();
     super.dispose();
   }
 
@@ -267,22 +351,94 @@ class _MapScreenState extends State<MapScreen> {
               ),
             ),
             Expanded(
-              child: FlutterMap(
-                mapController: _mapController,
-                options: MapOptions(
-                  onMapReady: _refresh,
-                  initialCenter: LatLng(3.1390, 101.6869),
-                  initialZoom: 12,
-                  onPositionChanged: _onPositionChanged,
-                ),
-                children: [
-                  TileLayer(
-                    urlTemplate:
-                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                    userAgentPackageName: 'com.byakugan.byakugan',
-                  ),
-                ],
-              ),
+              child: _start == null
+                  ? const Center(
+                      child: CircularProgressIndicator(color: YeKe.rotom),
+                    )
+                  : Stack(
+                      children: [
+                        FlutterMap(
+                          mapController: _mapController,
+                          options: MapOptions(
+                            onMapReady: _refresh,
+                            initialCenter: _start!,
+                            initialZoom: _startZoom,
+                            onMapEvent: _onMapEvent,
+                            maxZoom: 19,
+                            onPositionChanged: _onPositionChanged,
+                          ),
+                          children: [
+                            TileLayer(
+                              urlTemplate:
+                                  'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                              userAgentPackageName: 'com.byakugan.byakugan',
+                            ),
+                          ],
+                        ),
+                        Positioned(
+                          right: 12,
+                          bottom: 72,
+                          child: IgnorePointer(
+                            ignoring: _dragRegistered,
+                            child: AnimatedOpacity(
+                              opacity: _dragRegistered ? 0 : 1,
+                              duration: const Duration(seconds: 1),
+                              child: Directionality(
+                                textDirection: TextDirection.rtl,
+                                child: MenuAnchor(
+                                  style: const MenuStyle(
+                                    backgroundColor: WidgetStatePropertyAll(
+                                      YeKe.night,
+                                    ),
+                                  ),
+                                  builder: (context, controller, _) =>
+                                      FilledButton(
+                                        style: FilledButton.styleFrom(
+                                          backgroundColor: YeKe.dusky,
+                                        ),
+                                        onPressed: () => controller.isOpen
+                                            ? controller.close()
+                                            : controller.open(),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(_city.label),
+                                            const SizedBox(width: 12),
+                                            CountryFlag.fromCountryCode(
+                                              _city.countryCode,
+                                              theme: const ImageTheme(
+                                                width: 22,
+                                                height: 14,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                  menuChildren: [
+                                    for (final city in _City.values)
+                                      Directionality(
+                                        textDirection: TextDirection.ltr,
+                                        child: MenuItemButton(
+                                          onPressed: () => _jumpTo(city),
+                                          trailingIcon:
+                                              CountryFlag.fromCountryCode(
+                                                city.countryCode,
+                                                theme: const ImageTheme(
+                                                  width: 22,
+                                                  height: 14,
+                                                ),
+                                              ),
+                                          child: Text(city.label),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
             ),
           ],
         ),

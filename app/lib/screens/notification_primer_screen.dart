@@ -4,32 +4,70 @@ import 'package:permission_handler/permission_handler.dart';
 
 import '../theme/ye_ke.dart';
 
+enum _PrimerState { unasked, granted, denied }
+
 class NotificationPrimerScreen extends StatefulWidget {
   final VoidCallback onFinished;
+  final bool permissionGiven;
 
-  const NotificationPrimerScreen({super.key, required this.onFinished});
+  const NotificationPrimerScreen({
+    super.key,
+    required this.onFinished,
+    this.permissionGiven = false,
+  });
 
   @override
   State<NotificationPrimerScreen> createState() =>
       _NotificationPrimerScreenState();
 }
 
-class _NotificationPrimerScreenState extends State<NotificationPrimerScreen> {
+class _NotificationPrimerScreenState extends State<NotificationPrimerScreen>
+    with AutomaticKeepAliveClientMixin {
   bool _busy = false;
+  _PrimerState _state = _PrimerState.unasked;
+
+  static const _advanceDelay = Duration(milliseconds: 1600);
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.permissionGiven) _state = _PrimerState.granted;
+  }
+
+  _PrimerState _fromStatus(PermissionStatus s) => switch (s) {
+    PermissionStatus.granted ||
+    PermissionStatus.provisional ||
+    PermissionStatus.limited => _PrimerState.granted,
+    PermissionStatus.denied ||
+    PermissionStatus.permanentlyDenied ||
+    PermissionStatus.restricted => _PrimerState.denied,
+  };
 
   Future<void> _allow() async {
     if (_busy) return;
     setState(() => _busy = true);
 
     HapticFeedback.lightImpact();
+    var result = _PrimerState.denied;
+
     try {
-      await Permission.notification.request();
+      result = _fromStatus(await Permission.notification.request());
     } catch (_) {}
 
+    if (!mounted) return;
+    setState(() => _state = result);
+
+    await Future.delayed(_advanceDelay);
+    if (!mounted) return;
     widget.onFinished();
   }
 
   void _skip() {
+    if (_busy) return;
+
     HapticFeedback.selectionClick();
     widget.onFinished();
   }
@@ -39,6 +77,8 @@ class _NotificationPrimerScreenState extends State<NotificationPrimerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
+
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(color: YeKe.dusky),
@@ -101,7 +141,7 @@ class _NotificationPrimerScreenState extends State<NotificationPrimerScreen> {
                   const SizedBox(height: 16),
                   Text(
                     'Witness something fishy ?\n'
-                    "Use the livestream feature to report it.\n"
+                    "Use the livestream feature to snap it.\n"
                     'Notification-enabled users will receive a request to tune-in',
                     textAlign: textAlign,
                     style: TextStyle(
@@ -113,6 +153,103 @@ class _NotificationPrimerScreenState extends State<NotificationPrimerScreen> {
                   ),
                   if (!desktop) ...[const SizedBox(height: 20), closingMessage],
                 ];
+
+                final responsiveButtonStyling = FilledButton.styleFrom(
+                  alignment: desktop ? Alignment.centerLeft : Alignment.center,
+                  minimumSize: desktop
+                      ? const Size(_wideButtonWidth, 52)
+                      : const Size.fromHeight(52),
+                );
+
+                final notGrantedActions = Column(
+                  key: const ValueKey(_PrimerState.unasked),
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    FilledButton(
+                      onPressed: _allow,
+                      style: responsiveButtonStyling,
+                      child: _busy
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: YeKe.white,
+                              ),
+                            )
+                          : const Text('Turn on Notifications'),
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: desktop ? _wideButtonWidth : double.infinity,
+                      height: 44,
+                      child: TextButton(
+                        style: TextButton.styleFrom(
+                          alignment: desktop
+                              ? Alignment.centerLeft
+                              : Alignment.center,
+                          padding: const EdgeInsets.only(left: 24),
+                        ),
+                        onPressed: _busy ? null : _skip,
+                        child: Text(
+                          'Skip for now',
+                          style: TextStyle(
+                            color: YeKe.cement,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+
+                // Permission given is not a $state. Given on app start ups. GB has 2 features catching close app / halfway onboarding behaviour
+                final grantedButton = FilledButton(
+                  onPressed: widget.permissionGiven ? widget.onFinished : null,
+                  style: responsiveButtonStyling,
+                  child: const Text('Alerts are ON'),
+                );
+
+                final grantedActions = Row(
+                  key: const ValueKey(_PrimerState.granted),
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    desktop ? grantedButton : Expanded(child: grantedButton),
+                    const SizedBox(width: 12),
+                    Container(
+                      height: 40,
+                      width: 40,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: YeKe.oddish.withValues(alpha: 0.5),
+                          width: 2,
+                        ),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Transform.rotate(
+                        angle: -0.2,
+                        child: const Icon(
+                          Icons.check_box_outlined,
+                          color: YeKe.oddish,
+                          size: 35,
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+
+                final deniedActions = const Text(
+                  'Alerts turned OFF.\nYou can change this later in Settings.',
+                  key: ValueKey(_PrimerState.denied),
+                  style: TextStyle(
+                    color: YeKe.cement,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 15,
+                  ),
+                );
 
                 final buttons = <Widget>[
                   if (desktop) ...[
@@ -134,51 +271,28 @@ class _NotificationPrimerScreenState extends State<NotificationPrimerScreen> {
                     closingMessage,
                     const SizedBox(height: 20),
                   ],
-                  FilledButton(
-                    onPressed: _busy ? null : _allow,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: YeKe.rotom,
-                      foregroundColor: YeKe.white,
-                      alignment: desktop
-                          ? Alignment.centerLeft
-                          : Alignment.center,
-                      minimumSize: desktop
-                          ? const Size(_wideButtonWidth, 52)
-                          : const Size.fromHeight(52),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      textStyle: const TextStyle(
-                        letterSpacing: 1.1,
-                        fontFamily: 'Chelsea',
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 250),
+                    layoutBuilder: (current, previous) => Stack(
+                      alignment: AlignmentDirectional.centerStart,
+                      children: [...previous, ?current],
+                    ),
+                    child: switch (_state) {
+                      _PrimerState.unasked => notGrantedActions,
+                      _PrimerState.granted => grantedActions,
+                      _PrimerState.denied => deniedActions,
+                    },
+                  ),
+                  if (_state == _PrimerState.granted) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      'You can change this later in Settings.',
+                      style: TextStyle(
+                        fontFamily: 'Faculty',
+                        color: YeKe.white.withValues(alpha: 0.5),
                       ),
                     ),
-                    child: Text('Turn on Notifications'),
-                  ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    width: desktop ? _wideButtonWidth : double.infinity,
-                    height: 44,
-                    child: TextButton(
-                      style: TextButton.styleFrom(
-                        alignment: desktop
-                            ? Alignment.centerLeft
-                            : Alignment.center,
-                        padding: const EdgeInsets.only(left: 24),
-                      ),
-                      onPressed: _busy ? null : _skip,
-                      child: Text(
-                        'Skip for now',
-                        style: TextStyle(
-                          color: YeKe.cement,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 15,
-                        ),
-                      ),
-                    ),
-                  ),
+                  ],
                 ];
 
                 if (!desktop) {
