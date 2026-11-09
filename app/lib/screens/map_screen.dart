@@ -34,9 +34,38 @@ class MapScreen extends StatefulWidget {
   State<MapScreen> createState() => _MapScreenState();
 }
 
-class _MapScreenState extends State<MapScreen> {
+class _MapScreenState extends State<MapScreen>
+    with SingleTickerProviderStateMixin {
   final _mapController = MapController();
   final _client = PingClient(baseUrl: apiBaseUrl);
+
+  var _covered = false;
+
+  late final _moveAnim = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 888),
+  );
+  VoidCallback? _moveTick;
+
+  void _animatedMove(LatLng dest, double destZoom) {
+    final cam = _mapController.camera;
+    final lat = Tween<double>(begin: cam.center.latitude, end: dest.latitude);
+    final lng = Tween<double>(begin: cam.center.longitude, end: dest.longitude);
+    final zoom = Tween<double>(begin: cam.zoom, end: destZoom);
+
+    if (_moveTick != null) _moveAnim.removeListener(_moveTick!);
+    _moveTick = () {
+      final t = Curves.easeInCubic.transform(_moveAnim.value);
+      _mapController.move(
+        LatLng(lat.transform(t), lng.transform(t)),
+        zoom.transform(t),
+      );
+    };
+
+    _moveAnim
+      ..addListener(_moveTick!)
+      ..forward(from: 0);
+  }
 
   var _radarOpen = true;
   var _busy = false;
@@ -45,9 +74,14 @@ class _MapScreenState extends State<MapScreen> {
 
   static const _kLat = 'map_lat';
   static const _kLng = 'map_lng';
+  static const _kCity = 'map_city';
+
   var _city = _City.kl;
 
   LatLng? _start;
+  LatLng? _currentLoc;
+  StreamSubscription<Position>? _currentLocSub;
+
   final double _startZoom = 12;
   var _dragRegistered = false;
 
@@ -84,11 +118,24 @@ class _MapScreenState extends State<MapScreen> {
             );
 
         center = LatLng(pos.latitude, pos.longitude);
+        _currentLoc = center;
+        _currentLocSub =
+            Geolocator.getPositionStream(
+              locationSettings: const LocationSettings(distanceFilter: 5),
+            ).listen((pos) {
+              if (mounted) {
+                setState(
+                  () => _currentLoc = LatLng(pos.latitude, pos.longitude),
+                );
+              }
+            }, onError: (_) {});
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('location permission not granted: $e');
+    }
 
+    final prefs = await SharedPreferences.getInstance();
     if (center == null) {
-      final prefs = await SharedPreferences.getInstance();
       final lat = prefs.getDouble(_kLat);
       final lng = prefs.getDouble(_kLng);
       if (lat != null && lng != null) {
@@ -97,16 +144,17 @@ class _MapScreenState extends State<MapScreen> {
     }
 
     if (!mounted) return;
+    final savedCity = _City.values.asNameMap()[prefs.getString(_kCity)];
     setState(() {
-      _start = center ?? _City.kl.center;
+      _start = center ?? savedCity?.center ?? _City.kl.center;
+      if (savedCity != null) _city = savedCity;
     });
   }
 
-  Future<void> _centerOnMe() async {
-    try {
-      final pos = await Geolocator.getCurrentPosition();
-      _mapController.move(LatLng(pos.latitude, pos.longitude), 18);
-    } catch (_) {}
+  void _centerOnMe() {
+    if (_currentLoc == null) return;
+    HapticFeedback.selectionClick();
+    _animatedMove(_currentLoc!, 18);
   }
 
   void _onPositionChanged(MapCamera camera, bool hasGesture) {
@@ -126,8 +174,17 @@ class _MapScreenState extends State<MapScreen> {
 
   void _jumpTo(_City city) {
     HapticFeedback.selectionClick();
-    setState(() => _city = city);
-    _mapController.move(city.center, _startZoom);
+    setState(() {
+      _city = city;
+      _covered = true;
+    });
+    SharedPreferences.getInstance().then((p) => p.setString(_kCity, city.name));
+  }
+
+  void _onCoverFaded() {
+    if (!_covered) return;
+    _mapController.move(_city.center, _startZoom);
+    setState(() => _covered = false);
   }
 
   Future<void> _refresh() async {
@@ -181,6 +238,9 @@ class _MapScreenState extends State<MapScreen> {
   void dispose() {
     _debounce?.cancel();
     _citySelectorTimer?.cancel();
+    _currentLocSub?.cancel();
+    _moveAnim.dispose();
+
     super.dispose();
   }
 
@@ -365,7 +425,7 @@ class _MapScreenState extends State<MapScreen> {
                             initialCenter: _start!,
                             initialZoom: _startZoom,
                             onMapEvent: _onMapEvent,
-                            maxZoom: 19,
+                            maxZoom: 22,
                             onPositionChanged: _onPositionChanged,
                           ),
                           children: [
@@ -374,97 +434,154 @@ class _MapScreenState extends State<MapScreen> {
                                   'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                               userAgentPackageName: 'com.byakugan.byakugan',
                             ),
+                            if (_currentLoc != null)
+                              MarkerLayer(
+                                markers: [
+                                  Marker(
+                                    point: _currentLoc!,
+                                    width: 70,
+                                    height: 70,
+                                    child: const _PulseDot(),
+                                  ),
+                                ],
+                              ),
                           ],
+                        ),
+                        Positioned.fill(
+                          child: IgnorePointer(
+                            child: AnimatedOpacity(
+                              opacity: _covered ? 1 : 0,
+                              curve: Curves.easeOut,
+                              duration: Duration(milliseconds: 420),
+                              onEnd: _onCoverFaded,
+                              child: const ColoredBox(color: YeKe.night),
+                            ),
+                          ),
                         ),
                         Positioned(
                           right: 12,
                           bottom: 72,
-                          child: IgnorePointer(
-                            ignoring: _dragRegistered,
-                            child: AnimatedOpacity(
-                              opacity: _dragRegistered ? 0 : 1,
-                              duration: const Duration(seconds: 1),
-                              child: Directionality(
-                                textDirection: TextDirection.rtl,
-                                child: MenuAnchor(
-                                  style: const MenuStyle(
-                                    backgroundColor: WidgetStatePropertyAll(
-                                      Colors.transparent,
-                                    ),
-                                    elevation: WidgetStatePropertyAll(0),
-                                    padding: WidgetStatePropertyAll(
-                                      EdgeInsets.zero,
-                                    ),
-                                  ),
-                                  builder: (context, controller, _) =>
-                                      FilledButton(
-                                        style: FilledButton.styleFrom(
-                                          backgroundColor: YeKe.dusky,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IgnorePointer(
+                                ignoring: _dragRegistered,
+                                child: AnimatedOpacity(
+                                  opacity: _dragRegistered ? 0 : 1,
+                                  duration: const Duration(seconds: 1),
+                                  child: Directionality(
+                                    textDirection: TextDirection.rtl,
+                                    child: MenuAnchor(
+                                      style: const MenuStyle(
+                                        backgroundColor: WidgetStatePropertyAll(
+                                          Colors.transparent,
                                         ),
-                                        onPressed: () => controller.isOpen
-                                            ? controller.close()
-                                            : controller.open(),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Text(_city.label),
-                                            const SizedBox(width: 12),
-                                            CountryFlag.fromCountryCode(
-                                              _city.countryCode,
-                                              theme: const ImageTheme(
-                                                width: 22,
-                                                height: 14,
+                                        elevation: WidgetStatePropertyAll(0),
+                                        padding: WidgetStatePropertyAll(
+                                          EdgeInsets.zero,
+                                        ),
+                                      ),
+                                      builder: (context, controller, _) =>
+                                          FilledButton(
+                                            style: FilledButton.styleFrom(
+                                              backgroundColor: YeKe.dusky,
+                                              elevation: 4,
+                                              shadowColor: Colors.black54,
+                                              padding: EdgeInsets.symmetric(
+                                                horizontal: 12,
+                                                vertical: 2,
                                               ),
                                             ),
-                                          ],
-                                        ),
-                                      ),
-                                  menuChildren: [
-                                    BackdropFilter(
-                                      filter: ImageFilter.blur(
-                                        sigmaX: 12,
-                                        sigmaY: 12,
-                                      ),
-                                      child: ColoredBox(
-                                        color: YeKe.night.withValues(
-                                          alpha: 0.5,
-                                        ),
-                                        child: Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                            vertical: 8,
-                                          ),
-                                          child: Directionality(
-                                            textDirection: TextDirection.ltr,
-                                            child: Column(
+                                            onPressed: () => controller.isOpen
+                                                ? controller.close()
+                                                : controller.open(),
+                                            child: Row(
                                               mainAxisSize: MainAxisSize.min,
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.stretch,
                                               children: [
-                                                for (final city in _City.values)
-                                                  MenuItemButton(
-                                                    onPressed: () =>
-                                                        _jumpTo(city),
-                                                    trailingIcon:
-                                                        CountryFlag.fromCountryCode(
-                                                          city.countryCode,
-                                                          theme:
-                                                              const ImageTheme(
-                                                                width: 22,
-                                                                height: 14,
-                                                              ),
-                                                        ),
-                                                    child: Text(city.label),
+                                                Text(
+                                                  _city.label,
+                                                  style: const TextStyle(
+                                                    fontSize: 13,
                                                   ),
+                                                ),
+                                                const SizedBox(width: 10),
+                                                CountryFlag.fromCountryCode(
+                                                  _city.countryCode,
+                                                  theme: const ImageTheme(
+                                                    width: 20,
+                                                    height: 14,
+                                                  ),
+                                                ),
                                               ],
                                             ),
                                           ),
+                                      menuChildren: [
+                                        BackdropFilter(
+                                          filter: ImageFilter.blur(
+                                            sigmaX: 12,
+                                            sigmaY: 4,
+                                          ),
+                                          child: ColoredBox(
+                                            color: YeKe.night.withValues(
+                                              alpha: 0.5,
+                                            ),
+                                            child: Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    vertical: 8,
+                                                  ),
+                                              child: Directionality(
+                                                textDirection:
+                                                    TextDirection.ltr,
+                                                child: Column(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment
+                                                          .stretch,
+                                                  children: [
+                                                    for (final city
+                                                        in _City.values)
+                                                      MenuItemButton(
+                                                        onPressed: () =>
+                                                            _jumpTo(city),
+                                                        trailingIcon:
+                                                            CountryFlag.fromCountryCode(
+                                                              city.countryCode,
+                                                              theme:
+                                                                  const ImageTheme(
+                                                                    width: 22,
+                                                                    height: 14,
+                                                                  ),
+                                                            ),
+                                                        child: Text(city.label),
+                                                      ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          ),
                                         ),
-                                      ),
+                                      ],
                                     ),
-                                  ],
+                                  ),
                                 ),
                               ),
-                            ),
+                              const SizedBox(width: 8),
+                              IconButton.filled(
+                                onPressed: _currentLoc == null
+                                    ? null
+                                    : _centerOnMe,
+                                style: IconButton.styleFrom(
+                                  backgroundColor: YeKe.dusky,
+                                ),
+                                icon: const Icon(
+                                  Icons.location_pin,
+                                  color: YeKe.door,
+                                  size: 18,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
@@ -473,6 +590,65 @@ class _MapScreenState extends State<MapScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _PulseDot extends StatefulWidget {
+  const _PulseDot();
+
+  @override
+  State<_PulseDot> createState() => _PulseDotState();
+}
+
+class _PulseDotState extends State<_PulseDot>
+    with SingleTickerProviderStateMixin {
+  late final _pulse = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 2600),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _pulse,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: YeKe.stand,
+          shape: BoxShape.circle,
+          border: Border.all(color: YeKe.night, width: 3),
+          boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4)],
+        ),
+      ),
+      builder: (context, dot) {
+        final t = const Interval(
+          0,
+          1600 / 2600,
+          curve: Curves.easeIn,
+        ).transform(_pulse.value);
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            Transform.scale(
+              scale: t,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: YeKe.road.withValues(alpha: 0.5 * (1 - t)),
+                ),
+                child: const SizedBox.expand(),
+              ),
+            ),
+            SizedBox(width: 20, height: 20, child: dot),
+          ],
+        );
+      },
     );
   }
 }
