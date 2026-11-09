@@ -6,6 +6,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:country_flags/country_flags.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
+import 'dart:ui' show ImageFilter;
 
 import '../models/ping.dart';
 import '../widgets/radar_view.dart';
@@ -388,7 +389,11 @@ class _MapScreenState extends State<MapScreen> {
                                 child: MenuAnchor(
                                   style: const MenuStyle(
                                     backgroundColor: WidgetStatePropertyAll(
-                                      YeKe.night,
+                                      Colors.transparent,
+                                    ),
+                                    elevation: WidgetStatePropertyAll(0),
+                                    padding: WidgetStatePropertyAll(
+                                      EdgeInsets.zero,
                                     ),
                                   ),
                                   builder: (context, controller, _) =>
@@ -415,22 +420,47 @@ class _MapScreenState extends State<MapScreen> {
                                         ),
                                       ),
                                   menuChildren: [
-                                    for (final city in _City.values)
-                                      Directionality(
-                                        textDirection: TextDirection.ltr,
-                                        child: MenuItemButton(
-                                          onPressed: () => _jumpTo(city),
-                                          trailingIcon:
-                                              CountryFlag.fromCountryCode(
-                                                city.countryCode,
-                                                theme: const ImageTheme(
-                                                  width: 22,
-                                                  height: 14,
-                                                ),
-                                              ),
-                                          child: Text(city.label),
+                                    BackdropFilter(
+                                      filter: ImageFilter.blur(
+                                        sigmaX: 12,
+                                        sigmaY: 12,
+                                      ),
+                                      child: ColoredBox(
+                                        color: YeKe.night.withValues(
+                                          alpha: 0.5,
+                                        ),
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 8,
+                                          ),
+                                          child: Directionality(
+                                            textDirection: TextDirection.ltr,
+                                            child: Column(
+                                              mainAxisSize: MainAxisSize.min,
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.stretch,
+                                              children: [
+                                                for (final city in _City.values)
+                                                  MenuItemButton(
+                                                    onPressed: () =>
+                                                        _jumpTo(city),
+                                                    trailingIcon:
+                                                        CountryFlag.fromCountryCode(
+                                                          city.countryCode,
+                                                          theme:
+                                                              const ImageTheme(
+                                                                width: 22,
+                                                                height: 14,
+                                                              ),
+                                                        ),
+                                                    child: Text(city.label),
+                                                  ),
+                                              ],
+                                            ),
+                                          ),
                                         ),
                                       ),
+                                    ),
                                   ],
                                 ),
                               ),
