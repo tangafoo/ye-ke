@@ -5,7 +5,16 @@ import 'package:flutter/material.dart';
 import '../theme/ye_ke.dart';
 
 class RadarView extends StatefulWidget {
-  const RadarView({super.key});
+  const RadarView({
+    super.key,
+    this.gridColor = YeKe.paint,
+    this.sweepColor = YeKe.road,
+    this.dotColor = YeKe.rotom,
+  });
+
+  final Color gridColor;
+  final Color sweepColor;
+  final Color dotColor;
 
   @override
   State<RadarView> createState() => _RadarViewState();
@@ -30,8 +39,20 @@ class _RadarViewState extends State<RadarView>
       child: Stack(
         fit: StackFit.expand,
         children: [
-          RepaintBoundary(child: CustomPaint(painter: RadarPainter())),
-          RepaintBoundary(child: CustomPaint(painter: SweepPainter(_sweep))),
+          RepaintBoundary(
+            child: CustomPaint(
+              painter: RadarPainter(
+                gridColor: widget.gridColor,
+                labelColor: widget.sweepColor,
+                dotColor: widget.dotColor,
+              ),
+            ),
+          ),
+          RepaintBoundary(
+            child: CustomPaint(
+              painter: SweepPainter(_sweep, color: widget.sweepColor),
+            ),
+          ),
         ],
       ),
     );
@@ -39,7 +60,17 @@ class _RadarViewState extends State<RadarView>
 }
 
 class RadarPainter extends CustomPainter {
+  RadarPainter({
+    required this.gridColor,
+    required this.labelColor,
+    required this.dotColor,
+  });
+
   static const rings = 3;
+
+  final Color gridColor;
+  final Color labelColor;
+  final Color dotColor;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -47,7 +78,7 @@ class RadarPainter extends CustomPainter {
     final radius = min(size.width, size.height) / 2 - 8;
 
     final line = Paint()
-      ..color = YeKe.paint
+      ..color = gridColor
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
 
@@ -66,12 +97,12 @@ class RadarPainter extends CustomPainter {
       line,
     );
 
-    canvas.drawCircle(center, 8, Paint()..color = YeKe.rotom);
+    canvas.drawCircle(center, 8, Paint()..color = dotColor);
 
     final n = TextPainter(
-      text: const TextSpan(
+      text: TextSpan(
         text: 'N',
-        style: TextStyle(color: YeKe.oddish, fontSize: 10),
+        style: TextStyle(color: labelColor, fontSize: 10),
       ),
       textDirection: TextDirection.ltr,
     )..layout();
@@ -80,13 +111,17 @@ class RadarPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant RadarPainter oldDelegate) => false;
+  bool shouldRepaint(covariant RadarPainter oldDelegate) =>
+      oldDelegate.gridColor != gridColor ||
+      oldDelegate.labelColor != labelColor ||
+      oldDelegate.dotColor != dotColor;
 }
 
 class SweepPainter extends CustomPainter {
-  SweepPainter(this.sweep) : super(repaint: sweep);
+  SweepPainter(this.sweep, {required this.color}) : super(repaint: sweep);
 
   final Animation<double> sweep;
+  final Color color;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -97,10 +132,7 @@ class SweepPainter extends CustomPainter {
 
     final tail = Paint()
       ..shader = SweepGradient(
-        colors: [
-          YeKe.oddish.withValues(alpha: 0),
-          YeKe.oddish.withValues(alpha: 0.45),
-        ],
+        colors: [color.withValues(alpha: 0), color.withValues(alpha: 0.45)],
         stops: const [0.75, 1.0],
         transform: GradientRotation(angle),
       ).createShader(rect);
@@ -109,14 +141,14 @@ class SweepPainter extends CustomPainter {
 
     canvas.drawLine(
       center,
-      center + Offset(cos(angle), sin(angle) * radius),
+      center + Offset(cos(angle), sin(angle)) * radius,
       Paint()
-        ..color = YeKe.oddish
+        ..color = color
         ..strokeWidth = 1.5,
     );
   }
 
   @override
   bool shouldRepaint(covariant SweepPainter oldDelegate) =>
-      oldDelegate.sweep != sweep;
+      oldDelegate.sweep != sweep || oldDelegate.color != color;
 }
