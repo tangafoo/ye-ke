@@ -149,6 +149,7 @@ func main() {
 	mux.HandleFunc("POST /users/anonymous", srv.handleAnonymousUser)
 	mux.HandleFunc("POST /pings", srv.handlePingCreate)
 	mux.HandleFunc("GET /pings", srv.handlePingList)
+	mux.HandleFunc("GET /scan", srv.handleScan)
 	mux.HandleFunc("POST /transcribe", srv.handleTranscribe)
 
 	fmt.Println("Server is running on http://localhost:8080")
