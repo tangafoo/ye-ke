@@ -1,16 +1,44 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:latlong2/latlong.dart' hide Path;
 import 'package:geolocator/geolocator.dart';
+import 'package:country_flags/country_flags.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
+import 'dart:ui' show ImageFilter;
 
 import '../models/ping.dart';
 import '../widgets/radar_view.dart';
 import '../api/ping_client.dart';
+import '../api/scan_client.dart';
 import '../config.dart';
 import '../services/identity_service.dart';
 import '../theme/ye_ke.dart';
+
+enum _MapAction { addMarker, scanHere }
+
+enum _City {
+  kl('KL', 'MY', LatLng(3.1390, 101.6869)),
+  leipzig('Leipzig', 'DE', LatLng(51.3397, 12.3731)),
+  brisbane('Brisbane', 'AU', LatLng(-27.4698, 153.0251)),
+  bordeaux('Bordeaux', 'FR', LatLng(44.8378, -0.5792));
+
+  const _City(this.label, this.countryCode, this.center);
+  final String label;
+  final String countryCode;
+  final LatLng center;
+}
+
+enum _PanelTab {
+  copStories(asset: 'assets/images/mantis-cop.webp'),
+  emitters(asset: 'assets/images/climate-corpo.webp'),
+  houseboat(icon: Icons.houseboat);
+
+  const _PanelTab({this.icon, this.asset});
+  final IconData? icon;
+  final String? asset;
+}
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -19,31 +47,159 @@ class MapScreen extends StatefulWidget {
   State<MapScreen> createState() => _MapScreenState();
 }
 
-class _MapScreenState extends State<MapScreen> {
+class _MapScreenState extends State<MapScreen>
+    with SingleTickerProviderStateMixin {
   final _mapController = MapController();
   final _client = PingClient(baseUrl: apiBaseUrl);
+  final _scanClient = ScanClient(baseUrl: apiBaseUrl);
+
+  var _covered = false;
+
+  late final _moveAnim = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 888),
+  );
+  VoidCallback? _moveTick;
+
+  void _animatedMove(LatLng dest, double destZoom) {
+    final cam = _mapController.camera;
+    final lat = Tween<double>(begin: cam.center.latitude, end: dest.latitude);
+    final lng = Tween<double>(begin: cam.center.longitude, end: dest.longitude);
+    final zoom = Tween<double>(begin: cam.zoom, end: destZoom);
+
+    if (_moveTick != null) _moveAnim.removeListener(_moveTick!);
+    _moveTick = () {
+      final t = Curves.easeInCubic.transform(_moveAnim.value);
+      _mapController.move(
+        LatLng(lat.transform(t), lng.transform(t)),
+        zoom.transform(t),
+      );
+    };
+
+    _moveAnim
+      ..addListener(_moveTick!)
+      ..forward(from: 0);
+  }
 
   var _radarOpen = true;
   var _busy = false;
-  List<Ping> _pings = [];
+  // ignore: unused_field
+  List<Ping> _pings = []; // waiting for the ping UI
   Timer? _debounce;
+
+  static const _kLat = 'map_lat';
+  static const _kLng = 'map_lng';
+  static const _kCity = 'map_city';
+
+  var _city = _City.kl;
+
+  LatLng? _start;
+  LatLng? _currentLoc;
+  StreamSubscription<Position>? _currentLocSub;
+
+  final double _startZoom = 12;
+  var _dragRegistered = false;
+
+  Timer? _citySelectorTimer;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _centerOnMe());
+    _resolveStart();
   }
 
-  Future<void> _centerOnMe() async {
+  Future<Position?> _lastKnown() async {
     try {
-      final pos = await Geolocator.getCurrentPosition();
-      _mapController.move(LatLng(pos.latitude, pos.longitude), 30);
-    } catch (_) {}
+      // I guess this is a separate thing from the 4 LatLng selector. preserve this.
+      return await Geolocator.getLastKnownPosition();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _resolveStart() async {
+    LatLng? center;
+
+    try {
+      final p = await Geolocator.checkPermission();
+      if (p == LocationPermission.whileInUse ||
+          p == LocationPermission.always) {
+        final pos =
+            await _lastKnown() ??
+            await Geolocator.getCurrentPosition(
+              locationSettings: const LocationSettings(
+                timeLimit: Duration(seconds: 5),
+              ),
+            );
+
+        center = LatLng(pos.latitude, pos.longitude);
+        _currentLoc = center;
+        _currentLocSub =
+            Geolocator.getPositionStream(
+              locationSettings: const LocationSettings(distanceFilter: 5),
+            ).listen((pos) {
+              if (mounted) {
+                setState(
+                  () => _currentLoc = LatLng(pos.latitude, pos.longitude),
+                );
+              }
+            }, onError: (_) {});
+      }
+    } catch (e) {
+      debugPrint('location permission not granted: $e');
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    if (center == null) {
+      final lat = prefs.getDouble(_kLat);
+      final lng = prefs.getDouble(_kLng);
+      if (lat != null && lng != null) {
+        center = LatLng(lat, lng);
+      }
+    }
+
+    if (!mounted) return;
+    final savedCity = _City.values.asNameMap()[prefs.getString(_kCity)];
+    setState(() {
+      _start = center ?? savedCity?.center ?? _City.kl.center;
+      if (savedCity != null) _city = savedCity;
+    });
+  }
+
+  void _centerOnMe() {
+    if (_currentLoc == null) return;
+    HapticFeedback.selectionClick();
+    _animatedMove(_currentLoc!, 18);
   }
 
   void _onPositionChanged(MapCamera camera, bool hasGesture) {
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 400), _refresh);
+  }
+
+  void _onMapEvent(MapEvent event) {
+    if (event.source != MapEventSource.onDrag) return;
+
+    if (!_dragRegistered) setState(() => _dragRegistered = true);
+    _citySelectorTimer?.cancel();
+    _citySelectorTimer = Timer(const Duration(milliseconds: 900), () {
+      if (mounted) setState(() => _dragRegistered = false);
+    });
+  }
+
+  void _jumpTo(_City city) {
+    HapticFeedback.selectionClick();
+    setState(() {
+      _city = city;
+      _covered = true;
+    });
+    SharedPreferences.getInstance().then((p) => p.setString(_kCity, city.name));
+  }
+
+  void _onCoverFaded() {
+    if (!_covered) return;
+    _mapController.move(_city.center, _startZoom);
+    setState(() => _covered = false);
   }
 
   Future<void> _refresh() async {
@@ -61,7 +217,9 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
+  // ignore: unused_element
   Future<void> _ping() async {
+    // waiting for the ping UI
     if (_busy) return;
     setState(() => _busy = true);
     HapticFeedback.mediumImpact();
@@ -79,7 +237,7 @@ class _MapScreenState extends State<MapScreen> {
       );
       if (p == null || !mounted) return;
 
-      _mapController.move(LatLng(p.lat, p.lng), 30);
+      _mapController.move(LatLng(p.lat, p.lng), 18);
       await _refresh();
     } on PingCooldownException catch (e) {
       if (mounted) {
@@ -96,10 +254,130 @@ class _MapScreenState extends State<MapScreen> {
   @override
   void dispose() {
     _debounce?.cancel();
+    _citySelectorTimer?.cancel();
+    _currentLocSub?.cancel();
+    _moveAnim.dispose();
+
     super.dispose();
   }
 
+  // ----------------------------------------------------- RADAR VIEW
+
   var _rangeControlsOpened = false;
+  var _tab = _PanelTab.copStories;
+
+  Widget _tabButton(_PanelTab tab) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _tab = tab),
+        child: Container(
+          height: 20,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: _tab == tab ? YeKe.bg1 : YeKe.scaley,
+            border: BoxBorder.fromLTRB(bottom: BorderSide(color: YeKe.night)),
+          ),
+          child: tab.asset != null
+              ? AnimatedPadding(
+                  curve: Curves.easeOutExpo,
+                  duration: const Duration(milliseconds: 200),
+                  padding: EdgeInsets.all(_tab == tab ? 8 : 12),
+                  child: Image.asset(tab.asset!, width: 42, height: 42),
+                )
+              : Icon(tab.icon, color: YeKe.paper, size: 42),
+        ),
+      ),
+    );
+  }
+
+  // ----------------------------------------------------- ACTIONS
+
+  LatLng? _tapped;
+
+  static const _bubbleW = 180.0;
+  static const _bubbleH = 110.0;
+  static const _bubbleMargin = 8.0;
+
+  void _onMapTap(TapPosition tap, LatLng point) {
+    if (_tapped != null) {
+      setState(() => _tapped = null);
+      return;
+    }
+
+    final cam = _mapController.camera;
+    final size = cam.nonRotatedSize;
+    final p = cam.latLngToScreenOffset(point);
+
+    final fits =
+        p.dy >= _bubbleH + _bubbleMargin &&
+        p.dx >= _bubbleW / 2 + _bubbleMargin &&
+        p.dx <= size.width - _bubbleW / 2 - _bubbleMargin;
+
+    if (!fits) _animatedMove(point, cam.zoom);
+
+    setState(() => _tapped = point);
+  }
+
+  Future<void> _onMapAction(_MapAction action) async {
+    final point = _tapped!;
+
+    setState(() => _tapped = null);
+    switch (action) {
+      case _MapAction.addMarker:
+        debugPrint('ok $point');
+      case _MapAction.scanHere:
+        try {
+          // the preview (street photos) comes back first; the scan keeps sweeping
+          _scanClient
+              .preview(point)
+              .then((pre) {
+                final imgs = pre?['images'] as List<dynamic>? ?? const [];
+                debugPrint(
+                  '[scan] preview: ${imgs.length} street photos (${pre?['from']})',
+                );
+                for (final im in imgs.cast<Map<String, dynamic>>()) {
+                  debugPrint(
+                    '  ${(im['distance_m'] as num).round()}m ${im['thumb_url']}',
+                  );
+                }
+              })
+              .catchError(
+                (Object e) => debugPrint('[scan] preview failed: $e'),
+              );
+
+          final res = await _scanClient.scan(point);
+          if (res == null) {
+            debugPrint('[scan] no response');
+            return;
+          }
+          final incidents = res['incidents'] as List<dynamic>? ?? const [];
+          final police = res['police'] as List<dynamic>? ?? const [];
+          debugPrint(
+            '[scan] ${incidents.length} incidents, ${police.length} police stations, lanes ran: ${res['lanes']}',
+          );
+          for (final i in incidents.cast<Map<String, dynamic>>()) {
+            final m = (i['distance_m'] as num).round();
+            final date = (i['first_published'] as String? ?? '')
+                .split('T')
+                .first;
+            final articles = i['articles'] as List<dynamic>? ?? const [];
+            debugPrint(
+              '  ${m}m [${i['status']}] x${articles.length} ${i['place_name']} | ${i['title']} $date',
+            );
+            if ((i['image_url'] as String? ?? '').isNotEmpty) {
+              debugPrint('      photo ${i['image_url']}');
+            }
+          }
+          for (final p in police.cast<Map<String, dynamic>>()) {
+            debugPrint(
+              '  police ${(p['distance_m'] as num).round()}m ${p['title']}',
+            );
+          }
+        } catch (e) {
+          debugPrint('[scan] failed: $e');
+        }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -126,62 +404,11 @@ class _MapScreenState extends State<MapScreen> {
                               flex: 3,
                               child: Text('Range', textAlign: TextAlign.center),
                             )
-                          else ...[
-                            Expanded(
-                              child: Container(
-                                height: 20,
-                                width: double.infinity,
-                                decoration: BoxDecoration(
-                                  color: YeKe.bg1,
-                                  border: BoxBorder.fromLTRB(
-                                    bottom: BorderSide(color: YeKe.night),
-                                  ),
-                                ),
-                                child: const Icon(
-                                  Icons.newspaper,
-                                  color: YeKe.paper,
-                                  size: 42,
-                                ),
-                              ),
-                            ),
-
-                            Expanded(
-                              child: Container(
-                                height: 20,
-                                width: double.infinity,
-                                decoration: BoxDecoration(
-                                  color: YeKe.scaley,
-                                  border: BoxBorder.fromLTRB(
-                                    bottom: BorderSide(color: YeKe.night),
-                                  ),
-                                ),
-                                child: const Icon(
-                                  Icons.remove_red_eye,
-                                  color: YeKe.paper,
-                                  size: 42,
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              child: Container(
-                                height: 20,
-                                width: double.infinity,
-                                decoration: BoxDecoration(
-                                  color: YeKe.scaley,
-                                  border: BoxBorder.fromLTRB(
-                                    bottom: BorderSide(color: YeKe.night),
-                                  ),
-                                ),
-                                child: const Icon(
-                                  Icons.houseboat,
-                                  color: YeKe.paper,
-                                  size: 42,
-                                ),
-                              ),
-                            ),
-                          ],
+                          else
+                            for (final tab in _PanelTab.values) _tabButton(tab),
 
                           Expanded(
+                            key: const ValueKey('radar-settings'),
                             child: GestureDetector(
                               onTap: () => setState(
                                 () => _rangeControlsOpened =
@@ -196,10 +423,17 @@ class _MapScreenState extends State<MapScreen> {
                                     bottom: BorderSide(color: YeKe.night),
                                   ),
                                 ),
-                                child: const Icon(
-                                  Icons.engineering,
-                                  color: YeKe.paper,
-                                  size: 42,
+                                child: AnimatedPadding(
+                                  curve: Curves.easeOutExpo,
+                                  duration: const Duration(milliseconds: 200),
+                                  padding: EdgeInsets.all(
+                                    _rangeControlsOpened ? 8 : 12,
+                                  ),
+                                  child: Image.asset(
+                                    'assets/images/radar-settings.webp',
+                                    width: 42,
+                                    height: 42,
+                                  ),
                                 ),
                               ),
                             ),
@@ -216,7 +450,7 @@ class _MapScreenState extends State<MapScreen> {
                             color: YeKe.cement,
                             alignment: Alignment.center,
                             child: Text(
-                              'Scanner 2.0 ACAB ANTIFA',
+                              'Scanner 1.0 ACAB',
                               style: const TextStyle(
                                 fontFamily: 'Faculty',
                                 color: YeKe.bg1,
@@ -240,7 +474,32 @@ class _MapScreenState extends State<MapScreen> {
                                     ),
                                   ],
                                 ),
-                                child: RadarView(),
+                                child: AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 250),
+                                  child: switch (_tab) {
+                                    _PanelTab.copStories => const RadarView(
+                                      key: ValueKey(_PanelTab.copStories),
+                                    ),
+                                    _PanelTab.emitters => DecoratedBox(
+                                      key: const ValueKey(_PanelTab.emitters),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF071C21),
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      child: const RadarView(
+                                        gridColor: YeKe.oddish,
+                                        sweepColor: YeKe.stand,
+                                      ),
+                                    ),
+                                    _PanelTab.houseboat => const Center(
+                                      key: ValueKey(_PanelTab.houseboat),
+                                      child: Text(
+                                        'Houseboat',
+                                        style: TextStyle(color: YeKe.paper),
+                                      ),
+                                    ),
+                                  },
+                                ),
                               ),
                             ),
                           ),
@@ -267,26 +526,356 @@ class _MapScreenState extends State<MapScreen> {
               ),
             ),
             Expanded(
-              child: FlutterMap(
-                mapController: _mapController,
-                options: MapOptions(
-                  onMapReady: _refresh,
-                  initialCenter: LatLng(3.1390, 101.6869),
-                  initialZoom: 12,
-                  onPositionChanged: _onPositionChanged,
-                ),
-                children: [
-                  TileLayer(
-                    urlTemplate:
-                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                    userAgentPackageName: 'com.byakugan.byakugan',
-                  ),
-                ],
-              ),
+              child: _start == null
+                  ? const Center(
+                      child: CircularProgressIndicator(color: YeKe.rotom),
+                    )
+                  : Stack(
+                      children: [
+                        FlutterMap(
+                          mapController: _mapController,
+                          options: MapOptions(
+                            onMapReady: _refresh,
+                            initialCenter: _start!,
+                            initialZoom: _startZoom,
+                            onMapEvent: _onMapEvent,
+                            maxZoom: 22,
+                            onTap: _onMapTap,
+                            onSecondaryTap: _onMapTap,
+                            onPositionChanged: _onPositionChanged,
+                          ),
+                          children: [
+                            TileLayer(
+                              urlTemplate:
+                                  'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                              userAgentPackageName: 'com.byakugan.byakugan',
+                            ),
+                            if (_currentLoc != null)
+                              MarkerLayer(
+                                markers: [
+                                  Marker(
+                                    point: _currentLoc!,
+                                    width: 70,
+                                    height: 70,
+                                    child: const _PulseDot(),
+                                  ),
+                                ],
+                              ),
+                            if (_tapped != null)
+                              MarkerLayer(
+                                markers: [
+                                  Marker(
+                                    point: _tapped!,
+                                    width: _bubbleW,
+                                    height: _bubbleH,
+                                    alignment: Alignment.topCenter,
+                                    child: Column(
+                                      children: [
+                                        Expanded(
+                                          child: Container(
+                                            padding: const EdgeInsets.all(8),
+                                            decoration: BoxDecoration(
+                                              color: YeKe.paper,
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                            ),
+                                            child: Column(
+                                              children: [
+                                                const Text(
+                                                  'What to do?',
+                                                  style: TextStyle(
+                                                    color: YeKe.night,
+                                                  ),
+                                                ),
+                                                Row(
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment
+                                                          .spaceEvenly,
+                                                  children: [
+                                                    FilledButton(
+                                                      style: FilledButton.styleFrom(
+                                                        visualDensity:
+                                                            VisualDensity
+                                                                .compact,
+                                                        tapTargetSize:
+                                                            MaterialTapTargetSize
+                                                                .shrinkWrap,
+                                                        padding:
+                                                            const EdgeInsets.all(
+                                                              0,
+                                                            ),
+                                                        textStyle:
+                                                            const TextStyle(
+                                                              fontSize: 12,
+                                                            ),
+                                                      ),
+                                                      onPressed: () =>
+                                                          _onMapAction(
+                                                            _MapAction
+                                                                .addMarker,
+                                                          ),
+                                                      child: Text('Add Marker'),
+                                                    ),
+                                                    FilledButton(
+                                                      style: FilledButton.styleFrom(
+                                                        visualDensity:
+                                                            VisualDensity
+                                                                .compact,
+                                                        tapTargetSize:
+                                                            MaterialTapTargetSize
+                                                                .shrinkWrap,
+                                                        padding:
+                                                            const EdgeInsets.all(
+                                                              0,
+                                                            ),
+                                                        textStyle:
+                                                            const TextStyle(
+                                                              fontSize: 12,
+                                                            ),
+                                                      ),
+                                                      onPressed: () =>
+                                                          _onMapAction(
+                                                            _MapAction.scanHere,
+                                                          ),
+                                                      child: Text('Scan'),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                        const CustomPaint(
+                                          size: Size(16, 10),
+                                          painter: _ArrowPainter(YeKe.paper),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                          ],
+                        ),
+                        Positioned.fill(
+                          child: IgnorePointer(
+                            child: AnimatedOpacity(
+                              opacity: _covered ? 1 : 0,
+                              curve: Curves.easeOut,
+                              duration: Duration(milliseconds: 420),
+                              onEnd: _onCoverFaded,
+                              child: const ColoredBox(color: YeKe.night),
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          right: 12,
+                          bottom: 72,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IgnorePointer(
+                                ignoring: _dragRegistered,
+                                child: AnimatedOpacity(
+                                  opacity: _dragRegistered ? 0 : 1,
+                                  duration: const Duration(seconds: 1),
+                                  child: Directionality(
+                                    textDirection: TextDirection.rtl,
+                                    child: MenuAnchor(
+                                      style: const MenuStyle(
+                                        backgroundColor: WidgetStatePropertyAll(
+                                          Colors.transparent,
+                                        ),
+                                        elevation: WidgetStatePropertyAll(0),
+                                        padding: WidgetStatePropertyAll(
+                                          EdgeInsets.zero,
+                                        ),
+                                      ),
+                                      builder: (context, controller, _) =>
+                                          FilledButton(
+                                            style: FilledButton.styleFrom(
+                                              backgroundColor: YeKe.dusky,
+                                              elevation: 4,
+                                              shadowColor: Colors.black54,
+                                              padding: EdgeInsets.symmetric(
+                                                horizontal: 12,
+                                                vertical: 2,
+                                              ),
+                                            ),
+                                            onPressed: () => controller.isOpen
+                                                ? controller.close()
+                                                : controller.open(),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Text(
+                                                  _city.label,
+                                                  style: const TextStyle(
+                                                    fontSize: 13,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 10),
+                                                CountryFlag.fromCountryCode(
+                                                  _city.countryCode,
+                                                  theme: const ImageTheme(
+                                                    width: 20,
+                                                    height: 14,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                      menuChildren: [
+                                        BackdropFilter(
+                                          filter: ImageFilter.blur(
+                                            sigmaX: 12,
+                                            sigmaY: 4,
+                                          ),
+                                          child: ColoredBox(
+                                            color: YeKe.night.withValues(
+                                              alpha: 0.5,
+                                            ),
+                                            child: Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    vertical: 8,
+                                                  ),
+                                              child: Directionality(
+                                                textDirection:
+                                                    TextDirection.ltr,
+                                                child: Column(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment
+                                                          .stretch,
+                                                  children: [
+                                                    for (final city
+                                                        in _City.values)
+                                                      MenuItemButton(
+                                                        onPressed: () =>
+                                                            _jumpTo(city),
+                                                        trailingIcon:
+                                                            CountryFlag.fromCountryCode(
+                                                              city.countryCode,
+                                                              theme:
+                                                                  const ImageTheme(
+                                                                    width: 22,
+                                                                    height: 14,
+                                                                  ),
+                                                            ),
+                                                        child: Text(city.label),
+                                                      ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              IconButton.filled(
+                                onPressed: _currentLoc == null
+                                    ? null
+                                    : _centerOnMe,
+                                style: IconButton.styleFrom(
+                                  backgroundColor: YeKe.dusky,
+                                ),
+                                icon: const Icon(
+                                  Icons.location_pin,
+                                  color: YeKe.door,
+                                  size: 18,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
             ),
           ],
         ),
       ),
     );
   }
+}
+
+class _PulseDot extends StatefulWidget {
+  const _PulseDot();
+
+  @override
+  State<_PulseDot> createState() => _PulseDotState();
+}
+
+class _PulseDotState extends State<_PulseDot>
+    with SingleTickerProviderStateMixin {
+  late final _pulse = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 2600),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _pulse,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: YeKe.stand,
+          shape: BoxShape.circle,
+          border: Border.all(color: YeKe.night, width: 3),
+          boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4)],
+        ),
+      ),
+      builder: (context, dot) {
+        final t = const Interval(
+          0,
+          1600 / 2600,
+          curve: Curves.easeIn,
+        ).transform(_pulse.value);
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            Transform.scale(
+              scale: t,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: YeKe.road.withValues(alpha: 0.5 * (1 - t)),
+                ),
+                child: const SizedBox.expand(),
+              ),
+            ),
+            SizedBox(width: 20, height: 20, child: dot),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _ArrowPainter extends CustomPainter {
+  const _ArrowPainter(this.color);
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width, 0)
+      ..lineTo(size.width / 2, size.height)
+      ..close();
+    canvas.drawPath(path, Paint()..color = color);
+  }
+
+  @override
+  bool shouldRepaint(covariant _ArrowPainter old) => old.color != color;
 }

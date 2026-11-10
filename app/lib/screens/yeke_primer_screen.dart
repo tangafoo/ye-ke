@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:permission_handler/permission_handler.dart';
 
 import '../theme/ye_ke.dart';
 
@@ -16,15 +15,11 @@ class YekePrimerScreen extends StatefulWidget {
 class _YekePrimerScreenState extends State<YekePrimerScreen> {
   bool _busy = false;
 
-  Future<void> _allow() async {
+  void _finish() {
     if (_busy) return;
     setState(() => _busy = true);
 
     HapticFeedback.lightImpact();
-    try {
-      await Permission.notification.request();
-    } catch (_) {}
-
     widget.onFinished();
   }
 
@@ -93,13 +88,16 @@ class _YekePrimerScreenState extends State<YekePrimerScreen> {
                   ),
                   const SizedBox(height: 20),
                   Text(
-                    "Use the 'Chat' feature in any law situation\n"
-                    "'Urgent Mode' and 'Voice Mode' available\n"
-                    "when time-sensitive.\n"
+                    "Use the 'Chat' feature for any Malaysian law situation\n"
+                    "'Urgent' and 'Voice' mode if time-sensitive.\n"
                     "Retrieval from over 1,000+ acts.\n"
-                    "Draft legal action forms for offending officers",
+                    "Create & submit government complaint forms for free",
                     textAlign: textAlign,
-                    style: TextStyle(color: YeKe.sub, fontSize: 14, height: 1.5),
+                    style: TextStyle(
+                      color: YeKe.sub,
+                      fontSize: 14,
+                      height: 1.5,
+                    ),
                   ),
                   if (!desktop) ...[const SizedBox(height: 20), closingMessage],
                 ];
@@ -125,27 +123,24 @@ class _YekePrimerScreenState extends State<YekePrimerScreen> {
                     const SizedBox(height: 20),
                   ],
                   FilledButton(
-                    onPressed: _busy ? null : _allow,
+                    onPressed: _busy ? null : _finish,
                     style: FilledButton.styleFrom(
-                      backgroundColor: YeKe.rotom,
-                      foregroundColor: YeKe.white,
                       alignment: desktop
                           ? Alignment.centerLeft
                           : Alignment.center,
                       minimumSize: desktop
                           ? const Size(_wideButtonWidth, 52)
                           : const Size.fromHeight(52),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      textStyle: const TextStyle(
-                        letterSpacing: 1.1,
-                        fontFamily: 'Chelsea',
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
                     ),
                     child: Text('Finish'),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Enjoy !',
+                    style: TextStyle(
+                      fontFamily: 'Faculty',
+                      color: YeKe.white.withValues(alpha: 0.5),
+                    ),
                   ),
                 ];
 
