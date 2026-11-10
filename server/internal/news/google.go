@@ -294,16 +294,34 @@ func parseRetryAfter(raw string) time.Duration {
 	return 0
 }
 
+// Edition is a Google News regional edition: interface language, country, and
+// the combined ceid. It decides which outlets and languages the feed favours.
+type Edition struct {
+	HL, GL, CEID string
+}
+
+var (
+	EditionMY        = Edition{HL: "ms-MY", GL: "MY", CEID: "MY:ms"}
+	EditionMYEnglish = Edition{HL: "en-MY", GL: "MY", CEID: "MY:en"}
+	EditionAU        = Edition{HL: "en-AU", GL: "AU", CEID: "AU:en"}
+	EditionDE        = Edition{HL: "de", GL: "DE", CEID: "DE:de"}
+	EditionFR        = Edition{HL: "fr", GL: "FR", CEID: "FR:fr"}
+)
+
 func (c *Client) Search(ctx context.Context, query string) ([]Article, error) {
+	return c.SearchIn(ctx, query, EditionMY)
+}
+
+func (c *Client) SearchIn(ctx context.Context, query string, ed Edition) ([]Article, error) {
 	if strings.TrimSpace(query) == "" {
 		return nil, ErrEmptyQuery
 	}
 
 	params := url.Values{}
 	params.Set("q", query)
-	params.Set("hl", "ms-MY")
-	params.Set("gl", "MY")
-	params.Set("ceid", "MY:ms")
+	params.Set("hl", ed.HL)
+	params.Set("gl", ed.GL)
+	params.Set("ceid", ed.CEID)
 
 	body, err := c.fetch(ctx, c.baseURL+"?"+params.Encode())
 	if err != nil {
