@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:latlong2/latlong.dart' hide Path;
 import 'package:geolocator/geolocator.dart';
 import 'package:country_flags/country_flags.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -11,9 +11,12 @@ import 'dart:ui' show ImageFilter;
 import '../models/ping.dart';
 import '../widgets/radar_view.dart';
 import '../api/ping_client.dart';
+import '../api/scan_client.dart';
 import '../config.dart';
 import '../services/identity_service.dart';
 import '../theme/ye_ke.dart';
+
+enum _MapAction { addMarker, scanHere }
 
 enum _City {
   kl('KL', 'MY', LatLng(3.1390, 101.6869)),
@@ -48,6 +51,7 @@ class _MapScreenState extends State<MapScreen>
     with SingleTickerProviderStateMixin {
   final _mapController = MapController();
   final _client = PingClient(baseUrl: apiBaseUrl);
+  final _scanClient = ScanClient(baseUrl: apiBaseUrl);
 
   var _covered = false;
 
@@ -254,6 +258,8 @@ class _MapScreenState extends State<MapScreen>
     super.dispose();
   }
 
+  // ----------------------------------------------------- RADAR VIEW
+
   var _rangeControlsOpened = false;
   var _tab = _PanelTab.copStories;
 
@@ -279,6 +285,74 @@ class _MapScreenState extends State<MapScreen>
         ),
       ),
     );
+  }
+
+  // ----------------------------------------------------- ACTIONS
+
+  LatLng? _tapped;
+
+  static const _bubbleW = 180.0;
+  static const _bubbleH = 110.0;
+  static const _bubbleMargin = 8.0;
+
+  void _onMapTap(TapPosition tap, LatLng point) {
+    if (_tapped != null) {
+      setState(() => _tapped = null);
+      return;
+    }
+
+    final cam = _mapController.camera;
+    final size = cam.nonRotatedSize;
+    final p = cam.latLngToScreenOffset(point);
+
+    final fits =
+        p.dy >= _bubbleH + _bubbleMargin &&
+        p.dx >= _bubbleW / 2 + _bubbleMargin &&
+        p.dx <= size.width - _bubbleW / 2 - _bubbleMargin;
+
+    if (!fits) _animatedMove(point, cam.zoom);
+
+    setState(() => _tapped = point);
+  }
+
+  Future<void> _onMapAction(_MapAction action) async {
+    final point = _tapped!;
+
+    setState(() => _tapped = null);
+    switch (action) {
+      case _MapAction.addMarker:
+        debugPrint('ok $point');
+      case _MapAction.scanHere:
+        try {
+          final res = await _scanClient.scan(point);
+          if (res == null) {
+            debugPrint('[scan] no response');
+            return;
+          }
+          final incidents = res['incidents'] as List<dynamic>? ?? const [];
+          final police = res['police'] as List<dynamic>? ?? const [];
+          debugPrint(
+            '[scan] ${incidents.length} incidents, ${police.length} police stations, lanes ran: ${res['lanes']}',
+          );
+          for (final i in incidents.cast<Map<String, dynamic>>()) {
+            final m = (i['distance_m'] as num).round();
+            final date = (i['first_published'] as String? ?? '')
+                .split('T')
+                .first;
+            final articles = i['articles'] as List<dynamic>? ?? const [];
+            debugPrint(
+              '  ${m}m [${i['status']}] x${articles.length} ${i['place_name']} | ${i['title']} $date',
+            );
+          }
+          for (final p in police.cast<Map<String, dynamic>>()) {
+            debugPrint(
+              '  police ${(p['distance_m'] as num).round()}m ${p['title']}',
+            );
+          }
+        } catch (e) {
+          debugPrint('[scan] failed: $e');
+        }
+    }
   }
 
   @override
@@ -442,6 +516,8 @@ class _MapScreenState extends State<MapScreen>
                             initialZoom: _startZoom,
                             onMapEvent: _onMapEvent,
                             maxZoom: 22,
+                            onTap: _onMapTap,
+                            onSecondaryTap: _onMapTap,
                             onPositionChanged: _onPositionChanged,
                           ),
                           children: [
@@ -458,6 +534,99 @@ class _MapScreenState extends State<MapScreen>
                                     width: 70,
                                     height: 70,
                                     child: const _PulseDot(),
+                                  ),
+                                ],
+                              ),
+                            if (_tapped != null)
+                              MarkerLayer(
+                                markers: [
+                                  Marker(
+                                    point: _tapped!,
+                                    width: _bubbleW,
+                                    height: _bubbleH,
+                                    alignment: Alignment.topCenter,
+                                    child: Column(
+                                      children: [
+                                        Expanded(
+                                          child: Container(
+                                            padding: const EdgeInsets.all(8),
+                                            decoration: BoxDecoration(
+                                              color: YeKe.paper,
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                            ),
+                                            child: Column(
+                                              children: [
+                                                const Text(
+                                                  'What to do?',
+                                                  style: TextStyle(
+                                                    color: YeKe.night,
+                                                  ),
+                                                ),
+                                                Row(
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment
+                                                          .spaceEvenly,
+                                                  children: [
+                                                    FilledButton(
+                                                      style: FilledButton.styleFrom(
+                                                        visualDensity:
+                                                            VisualDensity
+                                                                .compact,
+                                                        tapTargetSize:
+                                                            MaterialTapTargetSize
+                                                                .shrinkWrap,
+                                                        padding:
+                                                            const EdgeInsets.all(
+                                                              0,
+                                                            ),
+                                                        textStyle:
+                                                            const TextStyle(
+                                                              fontSize: 12,
+                                                            ),
+                                                      ),
+                                                      onPressed: () =>
+                                                          _onMapAction(
+                                                            _MapAction
+                                                                .addMarker,
+                                                          ),
+                                                      child: Text('Add Marker'),
+                                                    ),
+                                                    FilledButton(
+                                                      style: FilledButton.styleFrom(
+                                                        visualDensity:
+                                                            VisualDensity
+                                                                .compact,
+                                                        tapTargetSize:
+                                                            MaterialTapTargetSize
+                                                                .shrinkWrap,
+                                                        padding:
+                                                            const EdgeInsets.all(
+                                                              0,
+                                                            ),
+                                                        textStyle:
+                                                            const TextStyle(
+                                                              fontSize: 12,
+                                                            ),
+                                                      ),
+                                                      onPressed: () =>
+                                                          _onMapAction(
+                                                            _MapAction.scanHere,
+                                                          ),
+                                                      child: Text('Scan'),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                        const CustomPaint(
+                                          size: Size(16, 10),
+                                          painter: _ArrowPainter(YeKe.paper),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ],
                               ),
@@ -667,4 +836,22 @@ class _PulseDotState extends State<_PulseDot>
       },
     );
   }
+}
+
+class _ArrowPainter extends CustomPainter {
+  const _ArrowPainter(this.color);
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width, 0)
+      ..lineTo(size.width / 2, size.height)
+      ..close();
+    canvas.drawPath(path, Paint()..color = color);
+  }
+
+  @override
+  bool shouldRepaint(covariant _ArrowPainter old) => old.color != color;
 }
