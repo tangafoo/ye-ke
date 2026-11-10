@@ -24,4 +24,16 @@ class ScanClient {
     if (res.statusCode != 200) return null;
     return jsonDecode(res.body) as Map<String, dynamic>;
   }
+
+  /// Street photos around the tap, for the loading strip. Served from our DB,
+  /// or fetched from Mapillary once per block, so it returns fast.
+  Future<Map<String, dynamic>?> preview(LatLng p) async {
+    final uri = Uri.parse('$baseUrl/scan/preview').replace(
+      queryParameters: {'lat': '${p.latitude}', 'lng': '${p.longitude}'},
+    );
+
+    final res = await _http.get(uri).timeout(const Duration(seconds: 25));
+    if (res.statusCode != 200) return null;
+    return jsonDecode(res.body) as Map<String, dynamic>;
+  }
 }

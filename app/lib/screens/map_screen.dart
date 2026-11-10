@@ -83,7 +83,8 @@ class _MapScreenState extends State<MapScreen>
 
   var _radarOpen = true;
   var _busy = false;
-  List<Ping> _pings = [];
+  // ignore: unused_field
+  List<Ping> _pings = []; // waiting for the ping UI
   Timer? _debounce;
 
   static const _kLat = 'map_lat';
@@ -216,7 +217,9 @@ class _MapScreenState extends State<MapScreen>
     }
   }
 
+  // ignore: unused_element
   Future<void> _ping() async {
+    // waiting for the ping UI
     if (_busy) return;
     setState(() => _busy = true);
     HapticFeedback.mediumImpact();
@@ -324,6 +327,24 @@ class _MapScreenState extends State<MapScreen>
         debugPrint('ok $point');
       case _MapAction.scanHere:
         try {
+          // the preview (street photos) comes back first; the scan keeps sweeping
+          _scanClient
+              .preview(point)
+              .then((pre) {
+                final imgs = pre?['images'] as List<dynamic>? ?? const [];
+                debugPrint(
+                  '[scan] preview: ${imgs.length} street photos (${pre?['from']})',
+                );
+                for (final im in imgs.cast<Map<String, dynamic>>()) {
+                  debugPrint(
+                    '  ${(im['distance_m'] as num).round()}m ${im['thumb_url']}',
+                  );
+                }
+              })
+              .catchError(
+                (Object e) => debugPrint('[scan] preview failed: $e'),
+              );
+
           final res = await _scanClient.scan(point);
           if (res == null) {
             debugPrint('[scan] no response');
@@ -343,6 +364,9 @@ class _MapScreenState extends State<MapScreen>
             debugPrint(
               '  ${m}m [${i['status']}] x${articles.length} ${i['place_name']} | ${i['title']} $date',
             );
+            if ((i['image_url'] as String? ?? '').isNotEmpty) {
+              debugPrint('      photo ${i['image_url']}');
+            }
           }
           for (final p in police.cast<Map<String, dynamic>>()) {
             debugPrint(
