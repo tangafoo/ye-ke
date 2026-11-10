@@ -7,10 +7,13 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sync/atomic"
 	"time"
 
 	ykanthropic "byakugan/internal/anthropic"
+	"byakugan/internal/blob"
 	"byakugan/internal/corpus"
+	"byakugan/internal/mapillary"
 	"byakugan/internal/news"
 	"byakugan/internal/osm"
 	"byakugan/internal/scribe"
@@ -72,6 +75,10 @@ type byakuganServer struct {
 	tiktok    *tiktok.Client
 	osm       *osm.Client
 	news      *news.Client
+	mapillary *mapillary.Client // nil when MAPILLARY_TOKEN isn't set
+	blob      *blob.Store       // nil when R2 isn't configured: no photos are fetched or hosted
+
+	enriching atomic.Bool // the background article enricher is running
 }
 
 // refsK caps how many related ROWS refs expansion may add to the prompt. The
@@ -157,13 +164,29 @@ func main() {
 		tiktok:    tiktok.New(apifyToken),
 		osm:       osm.New(),
 		news:      news.New(news.MjolnirSettings{}),
+		mapillary: mapillary.New(os.Getenv("MAPILLARY_TOKEN")),
+		blob: blob.New(blob.Config{
+			AccountID:       os.Getenv("R2_ACCOUNT_ID"),
+			AccessKeyID:     os.Getenv("R2_ACCESS_KEY_ID"),
+			SecretAccessKey: os.Getenv("R2_SECRET_ACCESS_KEY"),
+			Bucket:          os.Getenv("R2_BUCKET"),
+			PublicBaseURL:   os.Getenv("R2_PUBLIC_BASE_URL"),
+		}),
 	}
+	if srv.blob == nil {
+		log.Println("R2 not configured: street photos and news photos won't be hosted (or shown)")
+	}
+	if srv.mapillary == nil {
+		log.Println("MAPILLARY_TOKEN not set: no new street photos will be fetched")
+	}
+	srv.kickEnrich() // finish any articles left without photos from a previous run
 
 	mux.HandleFunc("POST /ask", srv.handleAsk)
 	mux.HandleFunc("POST /users/anonymous", srv.handleAnonymousUser)
 	mux.HandleFunc("POST /pings", srv.handlePingCreate)
 	mux.HandleFunc("GET /pings", srv.handlePingList)
 	mux.HandleFunc("GET /scan", srv.handleScan)
+	mux.HandleFunc("GET /scan/preview", srv.handleScanPreview)
 	mux.HandleFunc("POST /transcribe", srv.handleTranscribe)
 
 	fmt.Println("Server is running on http://localhost:8080")

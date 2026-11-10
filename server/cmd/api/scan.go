@@ -34,13 +34,15 @@ type incidentItem struct {
 	LastPublished  *time.Time    `json:"last_published"`
 	OutletCount    int           `json:"outlet_count"`
 	Status         string        `json:"status"`
+	ImageURL       string        `json:"image_url"` // first article with a photo (our thumbnail)
 	Articles       []articleItem `json:"articles"`
 }
 
 type articleItem struct {
 	Title       string     `json:"title"`
-	URL         string     `json:"url"`
+	URL         string     `json:"url"` // publisher link once resolved, else Google's redirect
 	Outlet      string     `json:"outlet"`
+	ImageURL    string     `json:"image_url"` // our thumbnail of the article's photo, "" until hosted or if none
 	PublishedAt *time.Time `json:"published_at"`
 }
 
@@ -92,6 +94,9 @@ func (s *byakuganServer) handleScan(w http.ResponseWriter, r *http.Request) {
 	sweepCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), sweepBudget)
 	lanes := s.runLanes(sweepCtx, cell, region, lat, lng, radius)
 	cancel()
+	if len(lanes) > 0 {
+		s.kickEnrich() // publisher links + photos for what the sweep just found
+	}
 	if ctx.Err() != nil {
 		log.Printf("[scan] client left during the sweep; results saved for the next scan (cell %s, lanes %v)", cell, lanes)
 		return
@@ -224,8 +229,16 @@ func (s *byakuganServer) incidentItems(ctx context.Context, news []store.Find, l
 		sort.Slice(fs, func(i, j int) bool { return earlier(fs[i].PublishedAt, fs[j].PublishedAt) })
 
 		arts := make([]articleItem, 0, len(fs))
+		image := ""
 		for _, f := range fs {
-			arts = append(arts, articleItem{Title: f.Title, URL: f.URL, Outlet: f.Outlet, PublishedAt: f.PublishedAt})
+			link := f.URL
+			if f.ArticleURL != "" {
+				link = f.ArticleURL
+			}
+			if image == "" {
+				image = f.ImageURL
+			}
+			arts = append(arts, articleItem{Title: f.Title, URL: link, Outlet: f.Outlet, ImageURL: f.ImageURL, PublishedAt: f.PublishedAt})
 		}
 		items = append(items, incidentItem{
 			ID:             inc.ID,
@@ -239,6 +252,7 @@ func (s *byakuganServer) incidentItems(ctx context.Context, news []store.Find, l
 			LastPublished:  inc.LastPublished,
 			OutletCount:    inc.OutletCount,
 			Status:         inc.Status,
+			ImageURL:       image,
 			Articles:       arts,
 		})
 	}
