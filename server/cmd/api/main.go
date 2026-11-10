@@ -11,8 +11,11 @@ import (
 
 	ykanthropic "byakugan/internal/anthropic"
 	"byakugan/internal/corpus"
+	"byakugan/internal/news"
+	"byakugan/internal/osm"
 	"byakugan/internal/scribe"
 	"byakugan/internal/store"
+	"byakugan/internal/tiktok"
 	"byakugan/internal/voyage"
 
 	"github.com/joho/godotenv"
@@ -66,6 +69,9 @@ type byakuganServer struct {
 	store     *store.Store
 	anthropic *ykanthropic.Client
 	scribe    *scribe.Client
+	tiktok    *tiktok.Client
+	osm       *osm.Client
+	news      *news.Client
 }
 
 // refsK caps how many related ROWS refs expansion may add to the prompt. The
@@ -127,6 +133,11 @@ func main() {
 		log.Fatal("Anthropic API key not set")
 	}
 
+	apifyToken := os.Getenv("APIFY_TOKEN")
+	if apifyToken == "" {
+		log.Fatal("Apify token not set")
+	}
+
 	st, err := store.Connect(ctx, dbURL)
 	if err != nil {
 		log.Fatalf("Could not connect to store: %v", err)
@@ -143,6 +154,9 @@ func main() {
 		store:     st,
 		anthropic: ykanthropic.New(anthropicKey),
 		scribe:    scribe.New(scribeKey),
+		tiktok:    tiktok.New(apifyToken),
+		osm:       osm.New(),
+		news:      news.New(news.MjolnirSettings{}),
 	}
 
 	mux.HandleFunc("POST /ask", srv.handleAsk)
