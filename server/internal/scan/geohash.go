@@ -11,6 +11,11 @@ func Cell(lat, lng float64) string {
 	return geohash(lat, lng, CellPrecision)
 }
 
+// CellAt is Cell at another precision (7 ≈ 150 m, for per-block sweeps).
+func CellAt(lat, lng float64, precision int) string {
+	return geohash(lat, lng, precision)
+}
+
 // geohash interleaves longitude and latitude bisections, 5 bits per character.
 func geohash(lat, lng float64, precision int) string {
 	latLo, latHi := -90.0, 90.0
