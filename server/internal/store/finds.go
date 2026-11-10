@@ -19,23 +19,26 @@ const (
 )
 
 type Find struct {
-	ID          string
-	SourceKind  string
-	SourceID    string
-	Lat         float64
-	Lng         float64
-	Precision   int16
-	PlaceName   string
-	Title       string
-	Body        string
-	URL         string
-	Outlet      string
-	PublishedAt *time.Time
-	FirstSeen   time.Time
-	Status      string
-	Raw         []byte // JSON; nil is stored as {}
-	IncidentID  *string
-	DistanceM   float64
+	ID             string
+	SourceKind     string
+	SourceID       string
+	Lat            float64
+	Lng            float64
+	Precision      int16
+	PlaceName      string
+	Title          string
+	Body           string
+	URL            string
+	Outlet         string
+	PublishedAt    *time.Time
+	FirstSeen      time.Time
+	Status         string
+	Raw            []byte // JSON; nil is stored as {}
+	IncidentID     *string
+	ArticleURL     string // the publisher's link, resolved from URL in the background
+	ImageURL       string // our hosted thumbnail of the article's photo
+	ImageSourceURL string // the outlet's original og:image (credit + takedown trail)
+	DistanceM      float64
 }
 
 // Existing rows are left alone: the first sighting wins, and re-scans cost nothing.
@@ -84,7 +87,8 @@ func (s *Store) UpsertFinds(ctx context.Context, finds []Find) (int, error) {
 // Most precise first, then nearest.
 const findsNearSQL = `
 	SELECT id, source_kind, source_id, lat, lng, precision, place_name, title, body,
-	       url, outlet, published_at, first_seen, status, incident_id, dist
+	       url, outlet, published_at, first_seen, status, incident_id, article_url, image_url,
+	       image_source_url, dist
 	FROM (
 		SELECT *, 6371000 * 2 * asin(sqrt(
 			power(sin(radians(lat - $1) / 2), 2) +
@@ -135,6 +139,9 @@ func (s *Store) FindsNear(ctx context.Context, lat, lng, radiusM float64, limit 
 			&f.FirstSeen,
 			&f.Status,
 			&f.IncidentID,
+			&f.ArticleURL,
+			&f.ImageURL,
+			&f.ImageSourceURL,
 			&f.DistanceM); err != nil {
 			return nil, fmt.Errorf("[finds] scan: %w", err)
 		}
@@ -183,6 +190,78 @@ func (s *Store) LogScan(ctx context.Context, userID string, lat, lng, radiusM fl
 		uid, lat, lng, radiusM, lanes, results)
 	if err != nil {
 		return fmt.Errorf("[scans] log: %w", err)
+	}
+	return nil
+}
+
+// PendingEnrich returns news finds not yet enriched (no publisher link / photo
+// attempt), newest first: what a scan shows first gets its photo first.
+func (s *Store) PendingEnrich(ctx context.Context, limit int) ([]Find, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT id, url, outlet
+		FROM finds
+		WHERE source_kind = 'news' AND enriched_at IS NULL
+		ORDER BY published_at DESC NULLS LAST
+		LIMIT $1;`, limit)
+	if err != nil {
+		return nil, fmt.Errorf("[finds] pending enrich: %w", err)
+	}
+	defer rows.Close()
+
+	var out []Find
+	for rows.Next() {
+		var f Find
+		if err := rows.Scan(&f.ID, &f.URL, &f.Outlet); err != nil {
+			return nil, fmt.Errorf("[finds] pending enrich scan: %w", err)
+		}
+		out = append(out, f)
+	}
+	return out, rows.Err()
+}
+
+// SaveEnrichment records the attempt; empty values mean "tried, nothing found".
+// imageSourceURL is the outlet's og:image; hosting a thumbnail of it is a
+// separate step (PendingHost / SaveHosted).
+func (s *Store) SaveEnrichment(ctx context.Context, id, articleURL, imageSourceURL string) error {
+	_, err := s.pool.Exec(ctx, `
+		UPDATE finds SET article_url = $2, image_source_url = $3, enriched_at = now()
+		WHERE id = $1;`, id, articleURL, imageSourceURL)
+	if err != nil {
+		return fmt.Errorf("[finds] save enrichment: %w", err)
+	}
+	return nil
+}
+
+// PendingHost returns finds with an outlet photo not yet copied to our storage.
+func (s *Store) PendingHost(ctx context.Context, limit int) ([]Find, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT id, image_source_url, outlet
+		FROM finds
+		WHERE image_source_url <> '' AND image_hosted_at IS NULL
+		ORDER BY published_at DESC NULLS LAST
+		LIMIT $1;`, limit)
+	if err != nil {
+		return nil, fmt.Errorf("[finds] pending host: %w", err)
+	}
+	defer rows.Close()
+
+	var out []Find
+	for rows.Next() {
+		var f Find
+		if err := rows.Scan(&f.ID, &f.ImageSourceURL, &f.Outlet); err != nil {
+			return nil, fmt.Errorf("[finds] pending host scan: %w", err)
+		}
+		out = append(out, f)
+	}
+	return out, rows.Err()
+}
+
+// SaveHosted records the hosting attempt; an empty imageURL means it failed.
+func (s *Store) SaveHosted(ctx context.Context, id, imageURL string) error {
+	_, err := s.pool.Exec(ctx, `
+		UPDATE finds SET image_url = $2, image_hosted_at = now() WHERE id = $1;`, id, imageURL)
+	if err != nil {
+		return fmt.Errorf("[finds] save hosted: %w", err)
 	}
 	return nil
 }
