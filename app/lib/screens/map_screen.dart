@@ -27,6 +27,16 @@ enum _City {
   final LatLng center;
 }
 
+enum _PanelTab {
+  copStories(asset: 'assets/images/mantis-cop.webp'),
+  emitters(asset: 'assets/images/climate-corpo.webp'),
+  houseboat(icon: Icons.houseboat);
+
+  const _PanelTab({this.icon, this.asset});
+  final IconData? icon;
+  final String? asset;
+}
+
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
 
@@ -245,6 +255,31 @@ class _MapScreenState extends State<MapScreen>
   }
 
   var _rangeControlsOpened = false;
+  var _tab = _PanelTab.copStories;
+
+  Widget _tabButton(_PanelTab tab) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _tab = tab),
+        child: Container(
+          height: 20,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: _tab == tab ? YeKe.bg1 : YeKe.scaley,
+            border: BoxBorder.fromLTRB(bottom: BorderSide(color: YeKe.night)),
+          ),
+          child: tab.asset != null
+              ? AnimatedPadding(
+                  curve: Curves.easeOutExpo,
+                  duration: const Duration(milliseconds: 200),
+                  padding: EdgeInsets.all(_tab == tab ? 8 : 12),
+                  child: Image.asset(tab.asset!, width: 42, height: 42),
+                )
+              : Icon(tab.icon, color: YeKe.paper, size: 42),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -271,62 +306,11 @@ class _MapScreenState extends State<MapScreen>
                               flex: 3,
                               child: Text('Range', textAlign: TextAlign.center),
                             )
-                          else ...[
-                            Expanded(
-                              child: Container(
-                                height: 20,
-                                width: double.infinity,
-                                decoration: BoxDecoration(
-                                  color: YeKe.bg1,
-                                  border: BoxBorder.fromLTRB(
-                                    bottom: BorderSide(color: YeKe.night),
-                                  ),
-                                ),
-                                child: const Icon(
-                                  Icons.newspaper,
-                                  color: YeKe.paper,
-                                  size: 42,
-                                ),
-                              ),
-                            ),
-
-                            Expanded(
-                              child: Container(
-                                height: 20,
-                                width: double.infinity,
-                                decoration: BoxDecoration(
-                                  color: YeKe.scaley,
-                                  border: BoxBorder.fromLTRB(
-                                    bottom: BorderSide(color: YeKe.night),
-                                  ),
-                                ),
-                                child: const Icon(
-                                  Icons.remove_red_eye,
-                                  color: YeKe.paper,
-                                  size: 42,
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              child: Container(
-                                height: 20,
-                                width: double.infinity,
-                                decoration: BoxDecoration(
-                                  color: YeKe.scaley,
-                                  border: BoxBorder.fromLTRB(
-                                    bottom: BorderSide(color: YeKe.night),
-                                  ),
-                                ),
-                                child: const Icon(
-                                  Icons.houseboat,
-                                  color: YeKe.paper,
-                                  size: 42,
-                                ),
-                              ),
-                            ),
-                          ],
+                          else
+                            for (final tab in _PanelTab.values) _tabButton(tab),
 
                           Expanded(
+                            key: const ValueKey('radar-settings'),
                             child: GestureDetector(
                               onTap: () => setState(
                                 () => _rangeControlsOpened =
@@ -341,10 +325,17 @@ class _MapScreenState extends State<MapScreen>
                                     bottom: BorderSide(color: YeKe.night),
                                   ),
                                 ),
-                                child: const Icon(
-                                  Icons.engineering,
-                                  color: YeKe.paper,
-                                  size: 42,
+                                child: AnimatedPadding(
+                                  curve: Curves.easeOutExpo,
+                                  duration: const Duration(milliseconds: 200),
+                                  padding: EdgeInsets.all(
+                                    _rangeControlsOpened ? 8 : 12,
+                                  ),
+                                  child: Image.asset(
+                                    'assets/images/radar-settings.webp',
+                                    width: 42,
+                                    height: 42,
+                                  ),
                                 ),
                               ),
                             ),
@@ -361,7 +352,7 @@ class _MapScreenState extends State<MapScreen>
                             color: YeKe.cement,
                             alignment: Alignment.center,
                             child: Text(
-                              'Scanner 2.0 ACAB ANTIFA',
+                              'Scanner 1.0 ACAB',
                               style: const TextStyle(
                                 fontFamily: 'Faculty',
                                 color: YeKe.bg1,
@@ -385,7 +376,32 @@ class _MapScreenState extends State<MapScreen>
                                     ),
                                   ],
                                 ),
-                                child: RadarView(),
+                                child: AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 250),
+                                  child: switch (_tab) {
+                                    _PanelTab.copStories => const RadarView(
+                                      key: ValueKey(_PanelTab.copStories),
+                                    ),
+                                    _PanelTab.emitters => DecoratedBox(
+                                      key: const ValueKey(_PanelTab.emitters),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF071C21),
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      child: const RadarView(
+                                        gridColor: YeKe.oddish,
+                                        sweepColor: YeKe.stand,
+                                      ),
+                                    ),
+                                    _PanelTab.houseboat => const Center(
+                                      key: ValueKey(_PanelTab.houseboat),
+                                      child: Text(
+                                        'Houseboat',
+                                        style: TextStyle(color: YeKe.paper),
+                                      ),
+                                    ),
+                                  },
+                                ),
                               ),
                             ),
                           ),
